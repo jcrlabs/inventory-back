@@ -2,9 +2,9 @@ APP=inventory-back
 PKG=./...
 BIN=bin/api
 VERSION ?= dev
-IMAGE ?= your-registry/$(APP):$(VERSION)
+IMAGE ?= registry.jcrlabs.net/$(APP):$(VERSION)
 
-GOLANGCI_LINT_VERSION ?= v1.64.5
+GOLANGCI_LINT_VERSION ?= v2.8.0
 MIGRATE ?= migrate
 DB_URL ?= $(DATABASE_URL)
 
@@ -12,9 +12,18 @@ DB_URL ?= $(DATABASE_URL)
 tidy:
 	go mod tidy
 
+.PHONY: tidy-check
+tidy-check:
+	go mod tidy
+	git diff --exit-code go.mod go.sum
+
 .PHONY: fmt
 fmt:
-	go fmt $(PKG)
+	gofmt -w .
+
+.PHONY: fmt-check
+fmt-check:
+	@test -z "$$(gofmt -l .)" || (echo "gofmt needed"; gofmt -l .; exit 1)
 
 .PHONY: vet
 vet:

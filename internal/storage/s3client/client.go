@@ -13,12 +13,12 @@ import (
 )
 
 type Client struct {
-	Bucket          string
-	PublicBaseURL   string
-	S3              *s3.Client
-	Presign         *s3.PresignClient
-	ForcePathStyle  bool
-	Endpoint        string
+	Bucket         string
+	PublicBaseURL  string
+	S3             *s3.Client
+	Presign        *s3.PresignClient
+	ForcePathStyle bool
+	Endpoint       string
 }
 
 type Options struct {

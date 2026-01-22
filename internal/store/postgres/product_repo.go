@@ -11,11 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/jonathanCaamano/inventory-back/internal/http/dto"
-	"github.com/jonathanCaamano/inventory-back/internal/service"
 )
 
 type productRow struct {
 	ID           uuid.UUID    `json:"id"`
+	GroupID      uuid.UUID    `json:"group_id"`
 	Name         string       `json:"name"`
 	Description  string       `json:"description"`
 	Price        float64      `json:"price"`
@@ -30,6 +30,20 @@ type productRow struct {
 	Images       []dto.Image  `json:"images,omitempty"`
 }
 
+type SearchRequest struct {
+	GroupID   *uuid.UUID
+	Search    string
+	Status    string
+	Paid      string
+	MinPrice  *float64
+	MaxPrice  *float64
+	FromEntry *time.Time
+	ToEntry   *time.Time
+	Sort      string
+	Limit     int
+	Offset    int
+}
+
 func (r *ProductRepo) Create(ctx context.Context, in dto.ProductCreate) (any, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -39,10 +53,10 @@ func (r *ProductRepo) Create(ctx context.Context, in dto.ProductCreate) (any, er
 
 	var id uuid.UUID
 	err = tx.QueryRow(ctx, `
-		INSERT INTO products (name, description, price, paid, status, entry_date, exit_date, observations)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		INSERT INTO products (group_id, name, description, price, paid, status, entry_date, exit_date, observations)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 		RETURNING id`,
-		in.Name, in.Description, in.Price, in.Paid, in.Status, in.EntryDate, in.ExitDate, in.Observations,
+		in.GroupID, in.Name, in.Description, in.Price, in.Paid, in.Status, in.EntryDate, in.ExitDate, in.Observations,
 	).Scan(&id)
 	if err != nil {
 		return nil, err
@@ -80,11 +94,11 @@ func (r *ProductRepo) Create(ctx context.Context, in dto.ProductCreate) (any, er
 
 func (r *ProductRepo) GetByID(ctx context.Context, id uuid.UUID) (any, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, name, coalesce(description,''), price, paid, status, entry_date, exit_date, coalesce(observations,''), created_at, updated_at
+		SELECT id, group_id, name, coalesce(description,''), price, paid, status, entry_date, exit_date, coalesce(observations,''), created_at, updated_at
 		FROM products WHERE id=$1`, id)
 
 	var p productRow
-	if err := row.Scan(&p.ID, &p.Name, &p.Description, &p.Price, &p.Paid, &p.Status, &p.EntryDate, &p.ExitDate, &p.Observations, &p.CreatedAt, &p.UpdatedAt); err != nil {
+	if err := row.Scan(&p.ID, &p.GroupID, &p.Name, &p.Description, &p.Price, &p.Paid, &p.Status, &p.EntryDate, &p.ExitDate, &p.Observations, &p.CreatedAt, &p.UpdatedAt); err != nil {
 		return nil, err
 	}
 
@@ -109,6 +123,15 @@ func (r *ProductRepo) GetByID(ctx context.Context, id uuid.UUID) (any, error) {
 	}
 
 	return p, nil
+}
+
+func (r *ProductRepo) GetProductGroupID(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	var gid uuid.UUID
+	err := r.pool.QueryRow(ctx, `SELECT group_id FROM products WHERE id=$1`, id).Scan(&gid)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return gid, nil
 }
 
 func (r *ProductRepo) Update(ctx context.Context, id uuid.UUID, in dto.ProductUpdate) (any, error) {
@@ -162,12 +185,19 @@ func (r *ProductRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *ProductRepo) Search(ctx context.Context, req service.SearchRequest) (any, error) {
+func (r *ProductRepo) Search(ctx context.Context, req SearchRequest) (any, error) {
 	where := []string{"1=1"}
 	args := []any{}
 	arg := func(v any) string {
 		args = append(args, v)
 		return fmt.Sprintf("$%d", len(args))
+	}
+
+	if req.GroupID != nil && *req.GroupID != uuid.Nil {
+		where = append(where, "group_id="+arg(*req.GroupID))
+	}
+	if req.GroupID != nil && *req.GroupID != uuid.Nil {
+		where = append(where, "group_id="+arg(*req.GroupID))
 	}
 
 	if req.Status != "" {
@@ -195,12 +225,11 @@ func (r *ProductRepo) Search(ctx context.Context, req service.SearchRequest) (an
 
 	sort := "updated_at DESC"
 	selectRank := ""
-	searchParamIdx := -1
 	if req.Search != "" {
 		args = append(args, req.Search)
-		searchParamIdx = len(args)
-		selectRank = fmt.Sprintf(", ts_rank(search_vector, websearch_to_tsquery('simple', $%d)) AS rank", searchParamIdx)
-		where = append(where, fmt.Sprintf("search_vector @@ websearch_to_tsquery('simple', $%d)", searchParamIdx))
+		idx := len(args)
+		selectRank = fmt.Sprintf(", ts_rank(search_vector, websearch_to_tsquery('simple', $%d)) AS rank", idx)
+		where = append(where, fmt.Sprintf("search_vector @@ websearch_to_tsquery('simple', $%d)", idx))
 		sort = "rank DESC, updated_at DESC"
 	}
 
@@ -217,7 +246,7 @@ func (r *ProductRepo) Search(ctx context.Context, req service.SearchRequest) (an
 	offset := arg(req.Offset)
 
 	q := `
-		SELECT id, name, coalesce(description,''), price, paid, status, entry_date, exit_date, coalesce(observations,''), created_at, updated_at
+		SELECT id, group_id, name, coalesce(description,''), price, paid, status, entry_date, exit_date, coalesce(observations,''), created_at, updated_at
 		` + selectRank + `
 		FROM products
 		WHERE ` + strings.Join(where, " AND ") + `
@@ -235,11 +264,11 @@ func (r *ProductRepo) Search(ctx context.Context, req service.SearchRequest) (an
 		var p productRow
 		if selectRank != "" {
 			var rank float32
-			if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Price, &p.Paid, &p.Status, &p.EntryDate, &p.ExitDate, &p.Observations, &p.CreatedAt, &p.UpdatedAt, &rank); err != nil {
+			if err := rows.Scan(&p.ID, &p.GroupID, &p.Name, &p.Description, &p.Price, &p.Paid, &p.Status, &p.EntryDate, &p.ExitDate, &p.Observations, &p.CreatedAt, &p.UpdatedAt, &rank); err != nil {
 				return nil, err
 			}
 		} else {
-			if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Price, &p.Paid, &p.Status, &p.EntryDate, &p.ExitDate, &p.Observations, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			if err := rows.Scan(&p.ID, &p.GroupID, &p.Name, &p.Description, &p.Price, &p.Paid, &p.Status, &p.EntryDate, &p.ExitDate, &p.Observations, &p.CreatedAt, &p.UpdatedAt); err != nil {
 				return nil, err
 			}
 		}
