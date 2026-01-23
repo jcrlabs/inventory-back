@@ -28,7 +28,7 @@ spec:
       serviceAccountName: minio-sa
       containers:
         - name: minio-argo-workflows-sentijobs
-          image: "ghcr.io/jonathancaamano/minio:RELEASE.2024-03-30T09-41-56Z"
+          image: "ghcr.io/jonathancaamano/minio:latest"
           imagePullPolicy: IfNotPresent
           command:
             - "/bin/sh"
