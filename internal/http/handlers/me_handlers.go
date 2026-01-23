@@ -25,7 +25,7 @@ func (h *Me) WhoAmI(w http.ResponseWriter, r *http.Request) {
 	isAdmin := middleware.IsAdmin(r.Context())
 	out, err := h.svc.WhoAmI(r.Context(), uid, isAdmin)
 	if err != nil {
-		response.Error(w, 500, "internal_error")
+		internalError(w, r, err)
 		return
 	}
 	response.JSON(w, 200, out)

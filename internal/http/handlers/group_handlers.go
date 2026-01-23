@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -24,7 +23,7 @@ func NewGroups(svc *groups.Service) *Groups {
 func (h *Groups) PublicList(w http.ResponseWriter, r *http.Request) {
 	items, err := h.svc.ListAll(r.Context())
 	if err != nil {
-		response.Error(w, 500, "internal_error")
+		internalError(w, r, err)
 		return
 	}
 	response.JSON(w, 200, map[string]any{"items": items})
@@ -39,7 +38,7 @@ func (h *Groups) ListForMe(w http.ResponseWriter, r *http.Request) {
 	isAdmin := middleware.IsAdmin(r.Context())
 	items, err := h.svc.ListForUser(r.Context(), uid, isAdmin)
 	if err != nil {
-		response.Error(w, 500, "internal_error")
+		internalError(w, r, err)
 		return
 	}
 	response.JSON(w, 200, map[string]any{"items": items})
@@ -52,7 +51,7 @@ type adminCreateGroupReq struct {
 
 func (h *Groups) AdminCreate(w http.ResponseWriter, r *http.Request) {
 	var in adminCreateGroupReq
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		response.Error(w, 400, "invalid_json")
 		return
 	}
@@ -76,7 +75,7 @@ func (h *Groups) AdminAddMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in adminMemberReq
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		response.Error(w, 400, "invalid_json")
 		return
 	}
@@ -100,7 +99,7 @@ func (h *Groups) AdminListMembers(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := h.svc.ListMembers(r.Context(), gid)
 	if err != nil {
-		response.Error(w, 500, "internal_error")
+		internalError(w, r, err)
 		return
 	}
 	response.JSON(w, 200, map[string]any{"items": items})

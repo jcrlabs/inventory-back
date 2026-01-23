@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -19,7 +20,7 @@ import (
 	"github.com/jonathanCaamano/inventory-back/internal/http/middleware"
 )
 
-func NewRouter(cfg config.Config, authSvc *auth.Service, productSvc *products.Service, groupSvc *groups.Service, userSvc *users.Service, meSvc *me.Service, s3c *s3client.Client) http.Handler {
+func NewRouter(cfg config.Config, authSvc *auth.Service, productSvc *products.Service, groupSvc *groups.Service, userSvc *users.Service, meSvc *me.Service, s3c *s3client.Client, dbPing func(context.Context) error) http.Handler {
 
 	r := chi.NewRouter()
 
@@ -32,16 +33,18 @@ func NewRouter(cfg config.Config, authSvc *auth.Service, productSvc *products.Se
 		MaxAge:           300,
 	}))
 	r.Use(middleware.RequestID)
+	r.Use(middleware.AccessLog)
 	r.Use(middleware.Recover)
 
-	health := handlers.NewHealth()
+	health := handlers.NewHealth(dbPing, s3c)
 	auth := handlers.NewAuth(authSvc)
 	users := handlers.NewUsers(userSvc)
 	meh := handlers.NewMe(meSvc)
 	groups := handlers.NewGroups(groupSvc)
 	products := handlers.NewProducts(cfg, productSvc, s3c)
 
-	r.Get("/health", health.Health)
+	r.Get("/health", health.Liveness)
+	r.Get("/ready", health.Readiness)
 	r.Get("/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/yaml")
 		w.WriteHeader(200)

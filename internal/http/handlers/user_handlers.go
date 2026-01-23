@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/jonathanCaamano/inventory-back/internal/application/users"
@@ -24,7 +23,7 @@ type adminCreateUserReq struct {
 
 func (h *Users) AdminCreate(w http.ResponseWriter, r *http.Request) {
 	var in adminCreateUserReq
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		response.Error(w, 400, "invalid_json")
 		return
 	}
@@ -43,7 +42,7 @@ func (h *Users) AdminList(w http.ResponseWriter, r *http.Request) {
 	offset := parseInt(q.Get("offset"), 0)
 	out, err := h.svc.List(r.Context(), search, limit, offset)
 	if err != nil {
-		response.Error(w, 500, "internal_error")
+		internalError(w, r, err)
 		return
 	}
 	response.JSON(w, 200, map[string]any{"items": out.Items, "total": out.Total, "limit": out.Limit, "offset": out.Offset})

@@ -113,6 +113,9 @@ func (s *Service) sign(uid uuid.UUID, isAdmin bool) (string, error) {
 }
 
 func (s *Service) resolveGroup(ctx context.Context, gid uuid.UUID, slug, name string) (group.Group, bool, error) {
+	if gid != uuid.Nil && (slug != "" || name != "") {
+		return group.Group{}, false, errors.New("group_ambiguous")
+	}
 	if gid != uuid.Nil {
 		g, err := s.groups.GetByID(ctx, gid)
 		if err != nil {

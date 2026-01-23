@@ -91,6 +91,11 @@ func (c *Client) PresignPutObject(ctx context.Context, objectKey, contentType st
 	return uploadURL, objectURL, nil
 }
 
+func (c *Client) CheckBucket(ctx context.Context) error {
+	_, err := c.S3.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(c.Bucket)})
+	return err
+}
+
 func (c *Client) objectURL(objectKey string) string {
 	if c.PublicBaseURL != "" {
 		return c.PublicBaseURL + "/" + strings.TrimLeft(objectKey, "/")

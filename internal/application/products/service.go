@@ -228,3 +228,17 @@ func (s *Service) RequireWriterForProduct(ctx context.Context, a Actor, productI
 	}
 	return s.requireGroupRole(ctx, a.UserID, gid, group.RoleWriter)
 }
+
+func (s *Service) GroupIDForProduct(ctx context.Context, a Actor, productID uuid.UUID) (uuid.UUID, error) {
+	gid, err := s.products.GetGroupID(ctx, productID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if a.IsAdmin {
+		return gid, nil
+	}
+	if err := s.requireGroupRole(ctx, a.UserID, gid, group.RoleWriter); err != nil {
+		return uuid.Nil, err
+	}
+	return gid, nil
+}

@@ -39,7 +39,7 @@ spec:
               mountPath: "/tmp/credentials"
               readOnly: true
             - name: export
-              mountPath: /export            
+              mountPath: /export
           ports:
             - name: http
               containerPort: 9000

@@ -31,6 +31,7 @@ var (
 	groupRepo   dgroup.Repository
 	productRepo dproduct.Repository
 	s3c         *s3client.Client
+	dbPing      func(context.Context) error
 )
 
 func main() {
@@ -46,6 +47,7 @@ func main() {
 		groupRepo = inull.NewGroupRepo()
 		productRepo = inull.NewProductRepo()
 		s3c = nil
+		dbPing = nil
 
 	} else {
 		// --- MODO NORMAL ---
@@ -54,6 +56,7 @@ func main() {
 			log.Fatal(err)
 		}
 		defer pool.Close()
+		dbPing = pool.Ping
 
 		userRepo = ipg.NewUserRepo(pool)
 		groupRepo = ipg.NewGroupRepo(pool)
@@ -89,7 +92,7 @@ func main() {
 	productSvc := products.New(productRepo, groupRepo)
 	meSvc := me.New(userRepo, groupRepo)
 
-	h := ihttp.NewRouter(cfg, authSvc, productSvc, groupSvc, userSvc, meSvc, s3c)
+	h := ihttp.NewRouter(cfg, authSvc, productSvc, groupSvc, userSvc, meSvc, s3c, dbPing)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

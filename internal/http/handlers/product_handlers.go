@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -37,7 +36,7 @@ func (h *Products) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	isAdmin := middleware.IsAdmin(r.Context())
 	var in dto.ProductCreate
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		response.Error(w, 400, "invalid_json")
 		return
 	}
@@ -105,7 +104,7 @@ func (h *Products) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in dto.ProductUpdate
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		response.Error(w, 400, "invalid_json")
 		return
 	}
@@ -233,7 +232,7 @@ func (h *Products) AddImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in dto.Image
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		response.Error(w, 400, "invalid_json")
 		return
 	}
@@ -263,7 +262,7 @@ func (h *Products) UpsertContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in dto.Contact
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		response.Error(w, 400, "invalid_json")
 		return
 	}
@@ -303,6 +302,10 @@ func parseFloatPtr(v string) *float64 {
 }
 
 func (h *Products) PresignImage(w http.ResponseWriter, r *http.Request) {
+	if h.s3 == nil {
+		response.Error(w, http.StatusServiceUnavailable, "storage_not_configured")
+		return
+	}
 	actor, err := middleware.UserID(r.Context())
 	if err != nil {
 		response.Error(w, 401, "missing_token")
@@ -316,12 +319,13 @@ func (h *Products) PresignImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a := products.Actor{UserID: actor, IsAdmin: isAdmin}
-	if err := h.svc.RequireWriterForProduct(r.Context(), a, id); err != nil {
+	gid, err := h.svc.GroupIDForProduct(r.Context(), a, id)
+	if err != nil {
 		response.Error(w, 403, "forbidden")
 		return
 	}
 	var in dto.PresignImageRequest
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		response.Error(w, 400, "invalid_json")
 		return
 	}
@@ -329,13 +333,16 @@ func (h *Products) PresignImage(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, 400, "file_name_and_content_type_required")
 		return
 	}
+	if !isAllowedImageContentType(in.ContentType) {
+		response.Error(w, 400, "content_type_not_allowed")
+		return
+	}
 
-	// key: products/{productId}/{uuid}-{fileName}
-	key := "products/" + id.String() + "/" + uuid.NewString() + "-" + sanitizeFileName(in.FileName)
+	key := "groups/" + gid.String() + "/products/" + id.String() + "/" + uuid.NewString() + "-" + sanitizeFileName(in.FileName)
 
 	uploadURL, objectURL, err := h.s3.PresignPutObject(r.Context(), key, in.ContentType, 10*time.Minute)
 	if err != nil {
-		response.Error(w, 500, "presign_failed")
+		serverError(w, r, 500, "presign_failed", err)
 		return
 	}
 
@@ -353,6 +360,15 @@ func sanitizeFileName(v string) string {
 	v = strings.ReplaceAll(v, "/", "-")
 	v = strings.ReplaceAll(v, "\\", "-")
 	return v
+}
+
+func isAllowedImageContentType(ct string) bool {
+	switch strings.ToLower(strings.TrimSpace(ct)) {
+	case "image/jpeg", "image/jpg", "image/png", "image/webp":
+		return true
+	default:
+		return false
+	}
 }
 
 type dtoProduct struct {

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -33,7 +32,7 @@ type registerReq struct {
 
 func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	var in loginReq
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		response.Error(w, 400, "invalid_json")
 		return
 	}
@@ -53,7 +52,7 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 
 func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	var in registerReq
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		response.Error(w, 400, "invalid_json")
 		return
 	}
@@ -61,7 +60,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	out, err := a.svc.Register(r.Context(), in.Username, in.Password, in.GroupID, in.GroupSlug, in.GroupName)
 	if err != nil {
 		switch err.Error() {
-		case "invalid_username", "invalid_password", "group_required", "invalid_group":
+		case "invalid_username", "invalid_password", "group_required", "invalid_group", "group_ambiguous":
 			response.Error(w, 400, err.Error())
 			return
 		case "group_not_found":
@@ -71,7 +70,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, 409, "username_taken")
 			return
 		default:
-			response.Error(w, 500, "internal_error")
+			internalError(w, r, err)
 			return
 		}
 	}
