@@ -1,17 +1,12 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: storage-volume-postgresql-argo
-  namespace: {{ .Values.cluster_configuration.namespace | default "argo-workflows" }}
+  name: storage-volume-postgresql-inventory
+  namespace: taller-inventario
 spec:
   accessModes:
     - ReadWriteOnce
-  {{- if eq .Values.cluster_configuration.storage_mode "full" }}
-  storageClassName: {{ .Values.postgres_configuration.full_storageClassName | default "ocs-external-storagecluster-ceph-rbd" }}
-  {{- else }}
-  storageClassName: {{ .Values.postgres_configuration.storageClassName | default "managed-csi" }}
-  {{- end}}
   volumeMode: Filesystem
   resources:
     requests:
-      storage: "4Gi"
+      storage: "3Gi"

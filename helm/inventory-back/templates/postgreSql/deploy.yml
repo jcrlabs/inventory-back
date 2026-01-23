@@ -2,25 +2,25 @@ kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: postgresql-argo-workflows
-  namespace: {{ .Values.cluster_configuration.namespace | default "argo-workflows" }}
+  namespace: taller-inventario
   annotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: "9187"
     prometheus.io/path: /metrics
     prometheus.io/scheme: http
   labels:
-    app: postgresql-argo-workflows
+    app: postgresql-inventory
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: postgresql-argo-workflows
+      app: postgresql-inventory
   template:
     metadata:
       labels:
-        app: postgresql-argo-workflows
+        app: postgresql-inventory
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9187"
@@ -29,7 +29,7 @@ spec:
     spec:
       terminationGracePeriodSeconds: 10
       containers:
-        - name: postgresql-argo-workflows
+        - name: postgresql-inventory
           resources:
             limits:
               cpu: "500m"
@@ -53,10 +53,10 @@ spec:
               protocol: TCP
           imagePullPolicy: Always
           volumeMounts:
-            - name: volume-postgresql-iventory
+            - name: volume-postgresql-inventory
               mountPath: /var/lib/postgresql/data
           terminationMessagePolicy: File
-          image:  {{ .Values.cluster_configuration.registry }}/itxapps/paas.postgres:17.5-alpine3.22
+          image:  ghcr.io/jonathancaamano/postgres:17.5-alpine3.22
         - name: metrics
           resources:
             limits:
@@ -65,7 +65,7 @@ spec:
             requests:
               cpu: "500m"
               memory: 500Mi
-          image: {{ .Values.cluster_configuration.registry }}/itxapps/paas.postgres-exporter:v0.17.1
+          image: ghcr.io/jonathancaamano/postgres-exporter:v0.17.1
           imagePullPolicy: Always
           env:
             - name: DATA_SOURCE_URI
@@ -73,7 +73,7 @@ spec:
             - name: DATA_SOURCE_PASS
               valueFrom:
                 secretKeyRef:
-                  name: argo-postgres-config
+                  name: postgresql-inventory-config
                   key: password
             - name: DATA_SOURCE_USER
               value: postgres
@@ -81,9 +81,9 @@ spec:
             - name: http-metrics
               containerPort: 9187
       volumes:
-        - name: volume-postgresql-iventory
+        - name: volume-postgresql-inventory
           persistentVolumeClaim:
-            claimName: storage-volume-postgresql-iventory
+            claimName: storage-volume-postgresql-inventory
         - name: shared-log-data
           emptyDir: {}
       dnsPolicy: ClusterFirst

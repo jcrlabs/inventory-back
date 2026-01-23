@@ -28,7 +28,7 @@ spec:
       serviceAccountName: minio-sa
       containers:
         - name: minio-argo-workflows-sentijobs
-          image: "{{ .Values.cluster_configuration.registry }}/itxapps/paas.minio:RELEASE.2024-03-30T09-41-56Z"
+          image: "ghcr.io/jonathancaamano/minio:RELEASE.2024-03-30T09-41-56Z"
           imagePullPolicy: IfNotPresent
           command:
             - "/bin/sh"
