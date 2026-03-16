@@ -37,10 +37,6 @@ func TestStatsHandler_GetStats_Success(t *testing.T) {
 				TotalProducts:   10,
 				ActiveProducts:  8,
 				TotalCategories: 3,
-				TotalStock:      150,
-				StockValue:      2500.50,
-				OutOfStock:      1,
-				LowStock:        2,
 				TotalUsers:      5,
 			}, nil
 		},

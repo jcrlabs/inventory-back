@@ -12,7 +12,6 @@ type Product struct {
 	Name        string         `gorm:"not null" json:"name"`
 	Description string         `json:"description"`
 	Price       float64        `gorm:"not null;default:0" json:"price"`
-	Stock       int            `gorm:"not null;default:0" json:"stock"`
 	SKU         string         `gorm:"uniqueIndex" json:"sku,omitempty"`
 	ImageURL    string         `json:"image_url,omitempty"`
 	ImageKey    string         `gorm:"column:image_key" json:"-"` // MinIO object key
@@ -20,6 +19,8 @@ type Product struct {
 	Category    *Category      `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
 	CreatedByID uuid.UUID      `gorm:"type:uuid;not null" json:"created_by_id"`
 	CreatedBy   *User          `gorm:"foreignKey:CreatedByID" json:"created_by,omitempty"`
+	Contact     *Contact       `gorm:"foreignKey:ProductID" json:"contact,omitempty"`
+	Paid        bool           `gorm:"not null;default:false" json:"paid"`
 	Active      bool           `gorm:"not null;default:true" json:"active"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`

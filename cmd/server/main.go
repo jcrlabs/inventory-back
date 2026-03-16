@@ -56,6 +56,7 @@ func main() {
 	tokenRepo := repository.NewRefreshTokenRepository(db)
 	productRepo := repository.NewProductRepository(db)
 	categoryRepo := repository.NewCategoryRepository(db)
+	contactRepo := repository.NewContactRepository(db)
 
 	// Services
 	authSvc := services.NewAuthService(userRepo, tokenRepo, cfg.JWTSecret, cfg.JWTAccessTTLHours)
@@ -65,6 +66,7 @@ func main() {
 	userHandler := handlers.NewUserHandler(userRepo, authSvc)
 	productHandler := handlers.NewProductHandler(productRepo, categoryRepo, minioSvc)
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
+	contactHandler := handlers.NewContactHandler(contactRepo, productRepo)
 	statsHandler := handlers.NewStatsHandler(db)
 
 	var minioCheck func() bool
@@ -129,6 +131,7 @@ func main() {
 		middleware.LoginRateLimiter(10, 15*time.Minute),
 		authHandler.Login,
 	)
+	api.POST("/auth/register", authHandler.Register)
 	api.POST("/auth/refresh", authHandler.Refresh)
 
 	// Authenticated routes
@@ -136,6 +139,7 @@ func main() {
 	auth.Use(middleware.AuthRequired(authSvc))
 	{
 		auth.GET("/auth/me", authHandler.Me)
+		auth.PATCH("/auth/me", authHandler.UpdateMe)
 		auth.POST("/auth/logout", authHandler.Logout)
 		auth.POST("/auth/logout-all", authHandler.LogoutAll)
 
@@ -145,6 +149,7 @@ func main() {
 		// Products — viewer+
 		auth.GET("/products", productHandler.List)
 		auth.GET("/products/:id", productHandler.Get)
+		auth.GET("/products/:id/contact", contactHandler.Get)
 
 		// Products — manager+
 		manage := auth.Group("")
@@ -152,16 +157,15 @@ func main() {
 		{
 			manage.POST("/products", productHandler.Create)
 			manage.PUT("/products/:id", productHandler.Update)
+			manage.DELETE("/products/:id", productHandler.Delete)
 			manage.POST("/products/:id/image", productHandler.UploadImage)
-			manage.PATCH("/products/:id/stock", productHandler.AdjustStock)
+			manage.PUT("/products/:id/contact", contactHandler.Upsert)
+			manage.DELETE("/products/:id/contact", contactHandler.Delete)
 		}
 
-		// Products — admin only
+		// Admin only group
 		adminOnly := auth.Group("")
 		adminOnly.Use(middleware.RequireRole(models.RoleAdmin))
-		{
-			adminOnly.DELETE("/products/:id", productHandler.Delete)
-		}
 
 		// Categories — viewer+
 		auth.GET("/categories", categoryHandler.List)

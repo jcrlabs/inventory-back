@@ -20,7 +20,6 @@ import (
 type productRepository interface {
 	FindAll(filter repository.ProductFilter) ([]models.Product, int64, error)
 	FindByID(id uuid.UUID) (*models.Product, error)
-	FindBySKU(sku string) (*models.Product, error)
 	Create(product *models.Product) error
 	Update(product *models.Product) error
 	Delete(id uuid.UUID) error
@@ -62,9 +61,8 @@ type CreateProductRequest struct {
 	Name        string     `json:"name" binding:"required,min=1,max=200"`
 	Description string     `json:"description" binding:"max=2000"`
 	Price       float64    `json:"price" binding:"gte=0"`
-	Stock       int        `json:"stock" binding:"gte=0"`
-	SKU         string     `json:"sku" binding:"omitempty,max=100"`
 	CategoryID  *uuid.UUID `json:"category_id"`
+	Paid        *bool      `json:"paid"`
 	Active      *bool      `json:"active"`
 }
 
@@ -72,15 +70,9 @@ type UpdateProductRequest struct {
 	Name        *string    `json:"name" binding:"omitempty,min=1,max=200"`
 	Description *string    `json:"description" binding:"omitempty,max=2000"`
 	Price       *float64   `json:"price" binding:"omitempty,gte=0"`
-	Stock       *int       `json:"stock" binding:"omitempty,gte=0"`
-	SKU         *string    `json:"sku" binding:"omitempty,max=100"`
 	CategoryID  *uuid.UUID `json:"category_id"`
+	Paid        *bool      `json:"paid"`
 	Active      *bool      `json:"active"`
-}
-
-type StockAdjustRequest struct {
-	Delta int    `json:"delta" binding:"required"`
-	Note  string `json:"note" binding:"max=200"`
 }
 
 func (h *ProductHandler) List(c *gin.Context) {
@@ -167,27 +159,23 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		}
 	}
 
-	// Check SKU uniqueness
-	if req.SKU != "" {
-		if _, err := h.productRepo.FindBySKU(req.SKU); err == nil {
-			c.JSON(http.StatusConflict, gin.H{"error": "SKU already exists"})
-			return
-		}
-	}
-
 	active := true
 	if req.Active != nil {
 		active = *req.Active
+	}
+
+	paid := false
+	if req.Paid != nil {
+		paid = *req.Paid
 	}
 
 	product := &models.Product{
 		Name:        req.Name,
 		Description: req.Description,
 		Price:       req.Price,
-		Stock:       req.Stock,
-		SKU:         req.SKU,
 		CategoryID:  req.CategoryID,
 		CreatedByID: userID,
+		Paid:        paid,
 		Active:      active,
 	}
 
@@ -229,14 +217,6 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// SKU uniqueness check (only if changing to a different SKU)
-	if req.SKU != nil && *req.SKU != "" && *req.SKU != product.SKU {
-		if existing, err := h.productRepo.FindBySKU(*req.SKU); err == nil && existing.ID != product.ID {
-			c.JSON(http.StatusConflict, gin.H{"error": "SKU already in use"})
-			return
-		}
-	}
-
 	// Category existence check
 	if req.CategoryID != nil {
 		if _, err := h.categoryRepo.FindByID(*req.CategoryID); err != nil {
@@ -254,14 +234,11 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	if req.Price != nil {
 		product.Price = *req.Price
 	}
-	if req.Stock != nil {
-		product.Stock = *req.Stock
-	}
-	if req.SKU != nil {
-		product.SKU = *req.SKU
-	}
 	if req.CategoryID != nil {
 		product.CategoryID = req.CategoryID
+	}
+	if req.Paid != nil {
+		product.Paid = *req.Paid
 	}
 	if req.Active != nil {
 		product.Active = *req.Active
@@ -298,6 +275,16 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch product"})
 		return
+	}
+
+	// Managers can only delete products they created
+	role, _ := middleware.GetUserRole(c)
+	if role == models.RoleManager {
+		userID, ok := middleware.GetUserID(c)
+		if !ok || product.CreatedByID != userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "you can only delete products you created"})
+			return
+		}
 	}
 
 	// Delete image from MinIO (best-effort, errors are logged inside DeleteObject)
@@ -364,45 +351,6 @@ func (h *ProductHandler) UploadImage(c *gin.Context) {
 
 	imageURL, _ := h.minioSvc.GetPresignedURL(objectKey, time.Hour)
 	c.JSON(http.StatusOK, gin.H{"image_url": imageURL})
-}
-
-// AdjustStock increments or decrements stock by a delta value.
-func (h *ProductHandler) AdjustStock(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product ID"})
-		return
-	}
-
-	var req StockAdjustRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	product, err := h.productRepo.FindByID(id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "product not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch product"})
-		return
-	}
-
-	newStock := product.Stock + req.Delta
-	if newStock < 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "insufficient stock"})
-		return
-	}
-	product.Stock = newStock
-
-	if err := h.productRepo.Update(product); err != nil {
-		slog.Error("adjust stock", slog.String("id", id.String()), slog.String("error", err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update stock"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"stock": product.Stock})
 }
 
 // enrichImageURLs populates ImageURL from ImageKey for a slice of products.

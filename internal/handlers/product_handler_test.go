@@ -17,12 +17,11 @@ import (
 // ── mocks ────────────────────────────────────────────────────────────────────
 
 type mockProductRepo struct {
-	findAllFn   func(filter repository.ProductFilter) ([]models.Product, int64, error)
-	findByIDFn  func(id uuid.UUID) (*models.Product, error)
-	findBySKUFn func(sku string) (*models.Product, error)
-	createFn    func(product *models.Product) error
-	updateFn    func(product *models.Product) error
-	deleteFn    func(id uuid.UUID) error
+	findAllFn  func(filter repository.ProductFilter) ([]models.Product, int64, error)
+	findByIDFn func(id uuid.UUID) (*models.Product, error)
+	createFn   func(product *models.Product) error
+	updateFn   func(product *models.Product) error
+	deleteFn   func(id uuid.UUID) error
 }
 
 func (m *mockProductRepo) FindAll(filter repository.ProductFilter) ([]models.Product, int64, error) {
@@ -35,13 +34,6 @@ func (m *mockProductRepo) FindAll(filter repository.ProductFilter) ([]models.Pro
 func (m *mockProductRepo) FindByID(id uuid.UUID) (*models.Product, error) {
 	if m.findByIDFn != nil {
 		return m.findByIDFn(id)
-	}
-	return nil, gorm.ErrRecordNotFound
-}
-
-func (m *mockProductRepo) FindBySKU(sku string) (*models.Product, error) {
-	if m.findBySKUFn != nil {
-		return m.findBySKUFn(sku)
 	}
 	return nil, gorm.ErrRecordNotFound
 }
@@ -117,8 +109,6 @@ func fakeProduct() *models.Product {
 		ID:     uuid.New(),
 		Name:   "Test Product",
 		Price:  9.99,
-		Stock:  10,
-		SKU:    "SKU-001",
 		Active: true,
 	}
 }
@@ -146,8 +136,7 @@ func newProductRouter(
 	r.GET("/products/:id", h.Get)
 	r.POST("/products", injectUser, h.Create)
 	r.PUT("/products/:id", h.Update)
-	r.DELETE("/products/:id", h.Delete)
-	r.POST("/products/:id/stock", h.AdjustStock)
+	r.DELETE("/products/:id", injectUser, h.Delete)
 	return r
 }
 
@@ -246,15 +235,14 @@ func TestProductHandler_Get_BadUUID(t *testing.T) {
 func TestProductHandler_Create_Success(t *testing.T) {
 	product := fakeProduct()
 	repo := &mockProductRepo{
-		findBySKUFn: func(_ string) (*models.Product, error) { return nil, gorm.ErrRecordNotFound },
-		createFn:    func(_ *models.Product) error { return nil },
-		findByIDFn:  func(_ uuid.UUID) (*models.Product, error) { return product, nil },
+		createFn:   func(_ *models.Product) error { return nil },
+		findByIDFn: func(_ uuid.UUID) (*models.Product, error) { return product, nil },
 	}
 	r := newProductRouter(repo, &mockCategoryRepo{}, nil)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPost, "/products",
-		jsonBody(t, map[string]any{"name": "Widget", "price": 5.0, "stock": 10, "sku": "WGT-1"}))
+		jsonBody(t, map[string]any{"name": "Widget", "price": 5.0}))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -295,39 +283,19 @@ func TestProductHandler_Create_CategoryNotFound(t *testing.T) {
 	}
 }
 
-func TestProductHandler_Create_SKUConflict(t *testing.T) {
-	existing := fakeProduct()
-	repo := &mockProductRepo{
-		findBySKUFn: func(_ string) (*models.Product, error) { return existing, nil },
-	}
-	r := newProductRouter(repo, &mockCategoryRepo{}, nil)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/products",
-		jsonBody(t, map[string]any{"name": "Widget", "sku": "EXISTING-SKU"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusConflict {
-		t.Errorf("expected 409, got %d: %s", w.Code, w.Body.String())
-	}
-}
-
 // ── Product Update ───────────────────────────────────────────────────────────
 
 func TestProductHandler_Update_Success(t *testing.T) {
 	product := fakeProduct()
 	repo := &mockProductRepo{
-		findByIDFn:  func(_ uuid.UUID) (*models.Product, error) { return product, nil },
-		findBySKUFn: func(_ string) (*models.Product, error) { return nil, gorm.ErrRecordNotFound },
-		updateFn:    func(_ *models.Product) error { return nil },
+		findByIDFn: func(_ uuid.UUID) (*models.Product, error) { return product, nil },
+		updateFn:   func(_ *models.Product) error { return nil },
 	}
 	r := newProductRouter(repo, &mockCategoryRepo{}, nil)
 
-	newName := "Updated Name"
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPut, "/products/"+product.ID.String(),
-		jsonBody(t, map[string]any{"name": newName}))
+		jsonBody(t, map[string]any{"name": "Updated Name"}))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -347,30 +315,6 @@ func TestProductHandler_Update_NotFound(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", w.Code)
-	}
-}
-
-func TestProductHandler_Update_SKUConflict(t *testing.T) {
-	product := fakeProduct()
-	product.SKU = "OLD-SKU"
-	conflicting := fakeProduct()
-	conflicting.SKU = "NEW-SKU"
-
-	repo := &mockProductRepo{
-		findByIDFn:  func(_ uuid.UUID) (*models.Product, error) { return product, nil },
-		findBySKUFn: func(_ string) (*models.Product, error) { return conflicting, nil },
-	}
-	r := newProductRouter(repo, &mockCategoryRepo{}, nil)
-
-	newSKU := "NEW-SKU"
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPut, "/products/"+product.ID.String(),
-		jsonBody(t, map[string]any{"sku": newSKU}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusConflict {
-		t.Errorf("expected 409, got %d: %s", w.Code, w.Body.String())
 	}
 }
 
@@ -402,61 +346,6 @@ func TestProductHandler_Delete_NotFound(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", w.Code)
-	}
-}
-
-// ── Product AdjustStock ──────────────────────────────────────────────────────
-
-func TestProductHandler_AdjustStock_Success(t *testing.T) {
-	product := fakeProduct()
-	product.Stock = 10
-	repo := &mockProductRepo{
-		findByIDFn: func(_ uuid.UUID) (*models.Product, error) { return product, nil },
-		updateFn:   func(_ *models.Product) error { return nil },
-	}
-	r := newProductRouter(repo, &mockCategoryRepo{}, nil)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/products/"+product.ID.String()+"/stock",
-		jsonBody(t, map[string]any{"delta": 5}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-}
-
-func TestProductHandler_AdjustStock_BadRequest(t *testing.T) {
-	r := newProductRouter(&mockProductRepo{}, &mockCategoryRepo{}, nil)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/products/"+uuid.New().String()+"/stock",
-		jsonBody(t, map[string]any{})) // missing required delta
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("expected 400, got %d: %s", w.Code, w.Body.String())
-	}
-}
-
-func TestProductHandler_AdjustStock_InsufficientStock(t *testing.T) {
-	product := fakeProduct()
-	product.Stock = 3
-	repo := &mockProductRepo{
-		findByIDFn: func(_ uuid.UUID) (*models.Product, error) { return product, nil },
-	}
-	r := newProductRouter(repo, &mockCategoryRepo{}, nil)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/products/"+product.ID.String()+"/stock",
-		jsonBody(t, map[string]any{"delta": -10})) // would result in negative stock
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("expected 400, got %d: %s", w.Code, w.Body.String())
 	}
 }
 
