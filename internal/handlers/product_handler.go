@@ -20,7 +20,6 @@ import (
 type productRepository interface {
 	FindAll(filter repository.ProductFilter) ([]models.Product, int64, error)
 	FindByID(id uuid.UUID) (*models.Product, error)
-	FindBySKU(sku string) (*models.Product, error)
 	Create(product *models.Product) error
 	Update(product *models.Product) error
 	Delete(id uuid.UUID) error
@@ -75,7 +74,6 @@ type UpdateProductRequest struct {
 	Paid        *bool      `json:"paid"`
 	Active      *bool      `json:"active"`
 }
-
 
 func (h *ProductHandler) List(c *gin.Context) {
 	filter := repository.ProductFilter{Page: 1, PageSize: 20}
