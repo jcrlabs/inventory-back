@@ -5,8 +5,22 @@ import (
 	"testing"
 )
 
+func mustSetenv(t *testing.T, key, value string) {
+	t.Helper()
+	if err := os.Setenv(key, value); err != nil {
+		t.Fatalf("os.Setenv(%q): %v", key, err)
+	}
+}
+
+func mustUnsetenv(t *testing.T, key string) {
+	t.Helper()
+	if err := os.Unsetenv(key); err != nil {
+		t.Fatalf("os.Unsetenv(%q): %v", key, err)
+	}
+}
+
 func TestLoad_MissingJWTSecret(t *testing.T) {
-	os.Unsetenv("JWT_SECRET")
+	mustUnsetenv(t, "JWT_SECRET")
 	_, err := Load()
 	if err == nil {
 		t.Fatal("expected error when JWT_SECRET is missing")
@@ -14,8 +28,8 @@ func TestLoad_MissingJWTSecret(t *testing.T) {
 }
 
 func TestLoad_ShortJWTSecret(t *testing.T) {
-	os.Setenv("JWT_SECRET", "tooshort")
-	defer os.Unsetenv("JWT_SECRET")
+	mustSetenv(t, "JWT_SECRET", "tooshort")
+	defer mustUnsetenv(t, "JWT_SECRET")
 	_, err := Load()
 	if err == nil {
 		t.Fatal("expected error when JWT_SECRET is too short")
@@ -23,8 +37,8 @@ func TestLoad_ShortJWTSecret(t *testing.T) {
 }
 
 func TestLoad_ValidConfig(t *testing.T) {
-	os.Setenv("JWT_SECRET", "a-very-long-secret-key-that-is-at-least-32-chars")
-	defer os.Unsetenv("JWT_SECRET")
+	mustSetenv(t, "JWT_SECRET", "a-very-long-secret-key-that-is-at-least-32-chars")
+	defer mustUnsetenv(t, "JWT_SECRET")
 
 	cfg, err := Load()
 	if err != nil {
@@ -42,17 +56,17 @@ func TestLoad_ValidConfig(t *testing.T) {
 }
 
 func TestLoad_CustomValues(t *testing.T) {
-	os.Setenv("JWT_SECRET", "a-very-long-secret-key-that-is-at-least-32-chars")
-	os.Setenv("PORT", "9090")
-	os.Setenv("ENV", "production")
-	os.Setenv("JWT_ACCESS_TTL_HOURS", "48")
-	os.Setenv("CORS_ALLOWED_ORIGINS", "https://example.com,https://api.example.com")
+	mustSetenv(t, "JWT_SECRET", "a-very-long-secret-key-that-is-at-least-32-chars")
+	mustSetenv(t, "PORT", "9090")
+	mustSetenv(t, "ENV", "production")
+	mustSetenv(t, "JWT_ACCESS_TTL_HOURS", "48")
+	mustSetenv(t, "CORS_ALLOWED_ORIGINS", "https://example.com,https://api.example.com")
 	defer func() {
-		os.Unsetenv("JWT_SECRET")
-		os.Unsetenv("PORT")
-		os.Unsetenv("ENV")
-		os.Unsetenv("JWT_ACCESS_TTL_HOURS")
-		os.Unsetenv("CORS_ALLOWED_ORIGINS")
+		mustUnsetenv(t, "JWT_SECRET")
+		mustUnsetenv(t, "PORT")
+		mustUnsetenv(t, "ENV")
+		mustUnsetenv(t, "JWT_ACCESS_TTL_HOURS")
+		mustUnsetenv(t, "CORS_ALLOWED_ORIGINS")
 	}()
 
 	cfg, err := Load()
@@ -71,11 +85,11 @@ func TestLoad_CustomValues(t *testing.T) {
 }
 
 func TestLoad_InvalidTTLDefaultsTo24(t *testing.T) {
-	os.Setenv("JWT_SECRET", "a-very-long-secret-key-that-is-at-least-32-chars")
-	os.Setenv("JWT_ACCESS_TTL_HOURS", "-5")
+	mustSetenv(t, "JWT_SECRET", "a-very-long-secret-key-that-is-at-least-32-chars")
+	mustSetenv(t, "JWT_ACCESS_TTL_HOURS", "-5")
 	defer func() {
-		os.Unsetenv("JWT_SECRET")
-		os.Unsetenv("JWT_ACCESS_TTL_HOURS")
+		mustUnsetenv(t, "JWT_SECRET")
+		mustUnsetenv(t, "JWT_ACCESS_TTL_HOURS")
 	}()
 
 	cfg, err := Load()
@@ -88,8 +102,8 @@ func TestLoad_InvalidTTLDefaultsTo24(t *testing.T) {
 }
 
 func TestIsProduction(t *testing.T) {
-	os.Setenv("JWT_SECRET", "a-very-long-secret-key-that-is-at-least-32-chars")
-	defer os.Unsetenv("JWT_SECRET")
+	mustSetenv(t, "JWT_SECRET", "a-very-long-secret-key-that-is-at-least-32-chars")
+	defer mustUnsetenv(t, "JWT_SECRET")
 
 	tests := []struct {
 		env      string
@@ -101,18 +115,18 @@ func TestIsProduction(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		os.Setenv("ENV", tt.env)
+		mustSetenv(t, "ENV", tt.env)
 		cfg, _ := Load()
 		if cfg.IsProduction() != tt.expected {
 			t.Errorf("env=%s: expected IsProduction()=%v", tt.env, tt.expected)
 		}
-		os.Unsetenv("ENV")
+		mustUnsetenv(t, "ENV")
 	}
 }
 
 func TestDSN(t *testing.T) {
-	os.Setenv("JWT_SECRET", "a-very-long-secret-key-that-is-at-least-32-chars")
-	defer os.Unsetenv("JWT_SECRET")
+	mustSetenv(t, "JWT_SECRET", "a-very-long-secret-key-that-is-at-least-32-chars")
+	defer mustUnsetenv(t, "JWT_SECRET")
 
 	cfg, _ := Load()
 	dsn := cfg.DSN()
