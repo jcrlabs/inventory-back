@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"time"
@@ -16,10 +17,33 @@ import (
 	"gorm.io/gorm"
 )
 
+type productRepository interface {
+	FindAll(filter repository.ProductFilter) ([]models.Product, int64, error)
+	FindByID(id uuid.UUID) (*models.Product, error)
+	FindBySKU(sku string) (*models.Product, error)
+	Create(product *models.Product) error
+	Update(product *models.Product) error
+	Delete(id uuid.UUID) error
+}
+
+type categoryRepository interface {
+	FindAll() ([]models.Category, error)
+	FindByID(id uuid.UUID) (*models.Category, error)
+	Create(category *models.Category) error
+	Update(category *models.Category) error
+	Delete(id uuid.UUID) error
+}
+
+type productMinioService interface {
+	GetPresignedURL(objectKey string, expiry time.Duration) (string, error)
+	UploadProductImage(file multipart.File, header *multipart.FileHeader) (string, error)
+	DeleteObject(objectKey string)
+}
+
 type ProductHandler struct {
-	productRepo  *repository.ProductRepository
-	categoryRepo *repository.CategoryRepository
-	minioSvc     *services.MinIOService
+	productRepo  productRepository
+	categoryRepo categoryRepository
+	minioSvc     productMinioService
 }
 
 func NewProductHandler(
@@ -407,7 +431,7 @@ func (h *ProductHandler) enrichImageURLs(products []models.Product) {
 // ---------------------------------------------------------------------------
 
 type CategoryHandler struct {
-	categoryRepo *repository.CategoryRepository
+	categoryRepo categoryRepository
 }
 
 func NewCategoryHandler(categoryRepo *repository.CategoryRepository) *CategoryHandler {

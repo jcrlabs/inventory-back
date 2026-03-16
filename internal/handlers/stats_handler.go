@@ -7,12 +7,16 @@ import (
 	"gorm.io/gorm"
 )
 
+type statsQuerier interface {
+	Fetch() (InventoryStats, error)
+}
+
 type StatsHandler struct {
-	db *gorm.DB
+	querier statsQuerier
 }
 
 func NewStatsHandler(db *gorm.DB) *StatsHandler {
-	return &StatsHandler{db: db}
+	return &StatsHandler{querier: &gormStatsQuerier{db: db}}
 }
 
 type InventoryStats struct {
@@ -27,9 +31,22 @@ type InventoryStats struct {
 }
 
 func (h *StatsHandler) GetStats(c *gin.Context) {
+	stats, err := h.querier.Fetch()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch stats"})
+		return
+	}
+	c.JSON(http.StatusOK, stats)
+}
+
+// gormStatsQuerier implements statsQuerier using a real *gorm.DB.
+type gormStatsQuerier struct {
+	db *gorm.DB
+}
+
+func (q *gormStatsQuerier) Fetch() (InventoryStats, error) {
 	var stats InventoryStats
 
-	// Single query for all product metrics
 	type productAgg struct {
 		Total      int64
 		Active     int64
@@ -39,7 +56,7 @@ func (h *StatsHandler) GetStats(c *gin.Context) {
 		LowStock   int64
 	}
 	var agg productAgg
-	h.db.Raw(`
+	if err := q.db.Raw(`
 		SELECT
 			COUNT(*)                                        AS total,
 			COUNT(*) FILTER (WHERE active = true)           AS active,
@@ -49,7 +66,9 @@ func (h *StatsHandler) GetStats(c *gin.Context) {
 			COUNT(*) FILTER (WHERE stock > 0 AND stock <= 5) AS low_stock
 		FROM products
 		WHERE deleted_at IS NULL
-	`).Scan(&agg)
+	`).Scan(&agg).Error; err != nil {
+		return stats, err
+	}
 
 	stats.TotalProducts = agg.Total
 	stats.ActiveProducts = agg.Active
@@ -58,8 +77,12 @@ func (h *StatsHandler) GetStats(c *gin.Context) {
 	stats.OutOfStock = agg.OutOfStock
 	stats.LowStock = agg.LowStock
 
-	h.db.Table("categories").Where("deleted_at IS NULL").Count(&stats.TotalCategories)
-	h.db.Table("users").Where("deleted_at IS NULL").Count(&stats.TotalUsers)
+	if err := q.db.Table("categories").Where("deleted_at IS NULL").Count(&stats.TotalCategories).Error; err != nil {
+		return stats, err
+	}
+	if err := q.db.Table("users").Where("deleted_at IS NULL").Count(&stats.TotalUsers).Error; err != nil {
+		return stats, err
+	}
 
-	c.JSON(http.StatusOK, stats)
+	return stats, nil
 }
