@@ -1,17 +1,17 @@
 package middleware
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 )
 
 func TestRequestLogger_LogsRequest(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Discard, nil))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	r := gin.New()
 	r.GET("/test", RequestLogger(logger), func(c *gin.Context) {
@@ -28,7 +28,7 @@ func TestRequestLogger_LogsRequest(t *testing.T) {
 }
 
 func TestRequestLogger_LogsErrors(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Discard, nil))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	r := gin.New()
 	r.GET("/fail", RequestLogger(logger), func(c *gin.Context) {
