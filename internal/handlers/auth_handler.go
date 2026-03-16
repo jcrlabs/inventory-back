@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,24 +20,27 @@ func NewAuthHandler(authSvc *services.AuthService, userRepo *repository.UserRepo
 	return &AuthHandler{authSvc: authSvc, userRepo: userRepo}
 }
 
-type LoginRequest struct {
-	Identifier string `json:"identifier" binding:"required"` // email or username
+type loginRequest struct {
+	Identifier string `json:"identifier" binding:"required"`
 	Password   string `json:"password" binding:"required"`
 }
 
-type LoginResponse struct {
-	Token string      `json:"token"`
-	User  interface{} `json:"user"`
+type refreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+type logoutRequest struct {
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
-	var req LoginRequest
+	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	token, user, err := h.authSvc.Login(req.Identifier, req.Password)
+	pair, user, err := h.authSvc.Login(req.Identifier, req.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, services.ErrInvalidCredentials):
@@ -44,15 +48,66 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		case errors.Is(err, services.ErrUserInactive):
 			c.JSON(http.StatusForbidden, gin.H{"error": "account is inactive"})
 		default:
+			slog.Error("login error", slog.String("error", err.Error()))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, LoginResponse{
-		Token: token,
-		User:  user,
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":  pair.AccessToken,
+		"refresh_token": pair.RefreshToken,
+		"expires_at":    pair.ExpiresAt,
+		"user":          user,
 	})
+}
+
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	var req refreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	pair, user, err := h.authSvc.Refresh(req.RefreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired refresh token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":  pair.AccessToken,
+		"refresh_token": pair.RefreshToken,
+		"expires_at":    pair.ExpiresAt,
+		"user":          user,
+	})
+}
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	var req logoutRequest
+	_ = c.ShouldBindJSON(&req) // optional body
+
+	if req.RefreshToken != "" {
+		if err := h.authSvc.Logout(req.RefreshToken); err != nil {
+			slog.Warn("logout revoke error", slog.String("error", err.Error()))
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "logged out"})
+}
+
+func (h *AuthHandler) LogoutAll(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	if err := h.authSvc.LogoutAll(userID); err != nil {
+		slog.Error("logout all error", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to revoke sessions"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "all sessions revoked"})
 }
 
 func (h *AuthHandler) Me(c *gin.Context) {
@@ -61,12 +116,10 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-
 	user, err := h.userRepo.FindByID(userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
-
 	c.JSON(http.StatusOK, user)
 }

@@ -30,7 +30,7 @@ func AuthRequired(authSvc *services.AuthService) gin.HandlerFunc {
 			return
 		}
 
-		claims, err := authSvc.ValidateToken(parts[1])
+		claims, err := authSvc.ValidateAccessToken(parts[1])
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
 			return

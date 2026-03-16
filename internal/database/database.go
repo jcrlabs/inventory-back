@@ -1,7 +1,8 @@
 package database
 
 import (
-	"log"
+	"log/slog"
+	"time"
 
 	"github.com/jonathanCaamano/inventory-back/internal/config"
 	"github.com/jonathanCaamano/inventory-back/internal/models"
@@ -10,15 +11,43 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+const (
+	maxRetries    = 5
+	retryInterval = 3 * time.Second
+)
+
 func Connect(cfg *config.Config) (*gorm.DB, error) {
 	logLevel := logger.Error
-	if cfg.Env == "development" {
-		logLevel = logger.Info
+	if !cfg.IsProduction() {
+		logLevel = logger.Warn
 	}
 
-	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{
-		Logger: logger.Default.LogMode(logLevel),
-	})
+	var db *gorm.DB
+	var err error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		db, err = gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{
+			Logger: logger.Default.LogMode(logLevel),
+		})
+		if err == nil {
+			sqlDB, pingErr := db.DB()
+			if pingErr == nil {
+				pingErr = sqlDB.Ping()
+			}
+			if pingErr == nil {
+				break
+			}
+			err = pingErr
+		}
+		if attempt < maxRetries {
+			slog.Warn("database connection failed, retrying",
+				slog.Int("attempt", attempt),
+				slog.Duration("next_retry", retryInterval),
+				slog.String("error", err.Error()),
+			)
+			time.Sleep(retryInterval)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -27,11 +56,11 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
 
-	log.Println("Database connected successfully")
+	slog.Info("database connected")
 	return db, nil
 }
 
@@ -40,5 +69,6 @@ func Migrate(db *gorm.DB) error {
 		&models.User{},
 		&models.Category{},
 		&models.Product{},
+		&models.RefreshToken{},
 	)
 }
