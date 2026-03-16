@@ -16,6 +16,3 @@ linters-settings: {}
 
 issues:
   exclude-use-default: false
-  exclude-rules:
-    - path: internal/storage/s3client/client.go
-      text: "SA1019"

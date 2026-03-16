@@ -15,10 +15,13 @@ spec:
       labels:
         app: inventory-back
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
       containers:
         - name: inventory-back
-          image: inventory-back:latest
-          imagePullPolicy: IfNotPresent
+          # Image is updated by CI/CD via `kubectl set image`
+          image: ghcr.io/jonathancaamano/inventory-back:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           envFrom:
@@ -26,18 +29,22 @@ spec:
                 name: inventory-back-config
             - secretRef:
                 name: inventory-back-secrets
+          # /livez always returns 200 — safe for liveness (no external deps)
           livenessProbe:
             httpGet:
-              path: /health
+              path: /livez
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 30
+            failureThreshold: 3
+          # /health checks DB + MinIO — used for readiness
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+            failureThreshold: 3
           resources:
             requests:
               cpu: "100m"
