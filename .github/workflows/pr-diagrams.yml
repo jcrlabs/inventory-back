@@ -3,6 +3,12 @@ name: PR Diagrams
 on:
   pull_request:
     types: [opened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to post diagrams on'
+        required: true
+        type: number
 
 permissions:
   pull-requests: write
@@ -164,9 +170,13 @@ jobs:
             \`\`\`
             `;
 
+            const issue_number = context.payload.pull_request
+              ? context.payload.pull_request.number
+              : Number(context.payload.inputs.pr_number);
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
+              issue_number,
               body: body
             });
