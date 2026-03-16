@@ -11,6 +11,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.74
 	golang.org/x/crypto v0.24.0
 	gorm.io/driver/postgres v1.5.7
+	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.30.0
 )
 
@@ -54,5 +55,4 @@ require (
 	golang.org/x/text v0.20.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gorm.io/driver/sqlite v1.6.0 // indirect
 )
