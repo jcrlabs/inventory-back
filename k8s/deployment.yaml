@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-back
+  namespace: inventory
+  labels:
+    app: inventory-back
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: inventory-back
+  template:
+    metadata:
+      labels:
+        app: inventory-back
+    spec:
+      containers:
+        - name: inventory-back
+          image: inventory-back:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: inventory-back-config
+            - secretRef:
+                name: inventory-back-secrets
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-back-service
+  namespace: inventory
+spec:
+  selector:
+    app: inventory-back
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: inventory-back-ingress
+  namespace: inventory
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: api.inventory.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: inventory-back-service
+                port:
+                  number: 8080
