@@ -43,6 +43,28 @@ spec:
                 secretKeyRef:
                   name: inventory-back-secrets
                   key: DB_PASSWORD
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - inventory
+                - -d
+                - inventory
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - inventory
+                - -d
+                - inventory
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: postgres-storage

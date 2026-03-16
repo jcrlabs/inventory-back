@@ -142,6 +142,11 @@ jobs:
       - name: Apply MinIO
         run: kubectl apply -f k8s/minio.yaml
 
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          kubectl rollout status deployment/postgres \
+            --namespace=${{ env.NAMESPACE }} --timeout=3m
+
       # ── Application ──────────────────────────────────────────────────────────
       - name: Apply Deployment / Service / Ingress
         run: kubectl apply -f k8s/deployment.yaml
