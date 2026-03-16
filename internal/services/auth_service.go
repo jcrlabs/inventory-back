@@ -36,9 +36,25 @@ type TokenPair struct {
 	ExpiresAt    time.Time `json:"expires_at"`
 }
 
+// userRepository is the subset of UserRepository used by AuthService.
+type userRepository interface {
+	FindByEmail(email string) (*models.User, error)
+	FindByUsername(username string) (*models.User, error)
+	FindByID(id uuid.UUID) (*models.User, error)
+	UpdateLastLogin(id uuid.UUID) error
+}
+
+// tokenRepository is the subset of RefreshTokenRepository used by AuthService.
+type tokenRepository interface {
+	Create(token *models.RefreshToken) error
+	FindByHash(hash string) (*models.RefreshToken, error)
+	RevokeByHash(hash string) error
+	RevokeAllForUser(userID uuid.UUID) error
+}
+
 type AuthService struct {
-	userRepo   *repository.UserRepository
-	tokenRepo  *repository.RefreshTokenRepository
+	userRepo   userRepository
+	tokenRepo  tokenRepository
 	jwtSecret  []byte
 	accessTTL  time.Duration
 	refreshTTL time.Duration

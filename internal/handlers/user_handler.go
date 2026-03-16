@@ -10,9 +10,21 @@ import (
 	"github.com/jonathanCaamano/inventory-back/internal/services"
 )
 
+type userRepo interface {
+	FindAll() ([]models.User, error)
+	FindByID(id uuid.UUID) (*models.User, error)
+	Create(user *models.User) error
+	Update(user *models.User) error
+	Delete(id uuid.UUID) error
+}
+
+type userAuthService interface {
+	HashPassword(password string) (string, error)
+}
+
 type UserHandler struct {
-	userRepo *repository.UserRepository
-	authSvc  *services.AuthService
+	userRepo userRepo
+	authSvc  userAuthService
 }
 
 func NewUserHandler(userRepo *repository.UserRepository, authSvc *services.AuthService) *UserHandler {

@@ -6,14 +6,27 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jonathanCaamano/inventory-back/internal/middleware"
+	"github.com/jonathanCaamano/inventory-back/internal/models"
 	"github.com/jonathanCaamano/inventory-back/internal/repository"
 	"github.com/jonathanCaamano/inventory-back/internal/services"
 )
 
+type authService interface {
+	Login(identifier, password string) (*services.TokenPair, *models.User, error)
+	Refresh(rawToken string) (*services.TokenPair, *models.User, error)
+	Logout(rawToken string) error
+	LogoutAll(userID uuid.UUID) error
+}
+
+type authUserRepo interface {
+	FindByID(id uuid.UUID) (*models.User, error)
+}
+
 type AuthHandler struct {
-	authSvc  *services.AuthService
-	userRepo *repository.UserRepository
+	authSvc  authService
+	userRepo authUserRepo
 }
 
 func NewAuthHandler(authSvc *services.AuthService, userRepo *repository.UserRepository) *AuthHandler {
