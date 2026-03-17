@@ -24,6 +24,9 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
+          env:
+            - name: MINIO_PUBLIC_URL
+              value: https://minio.jcrlabs.net
           envFrom:
             - configMapRef:
                 name: inventory-back-config
