@@ -73,7 +73,7 @@ type CreateProductRequest struct {
 	EntryDate         *time.Time `json:"entry_date"`
 	ExitDate          *time.Time `json:"exit_date"`
 	Observations      string     `json:"observations" binding:"max=2000"`
-	Price             float64    `json:"price" binding:"gte=0"`
+	Price             *float64   `json:"price" binding:"omitempty,gte=0"`
 	CategoryID        *uuid.UUID `json:"category_id"`
 	Paid              *bool      `json:"paid"`
 	Status            string     `json:"status"`
@@ -191,6 +191,11 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		paid = *req.Paid
 	}
 
+	price := 0.0
+	if req.Price != nil {
+		price = *req.Price
+	}
+
 	product := &models.Product{
 		Name:              req.Name,
 		RepairDescription: req.RepairDescription,
@@ -198,7 +203,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		EntryDate:         req.EntryDate,
 		ExitDate:          req.ExitDate,
 		Observations:      req.Observations,
-		Price:             req.Price,
+		Price:             price,
 		CategoryID:        req.CategoryID,
 		CreatedByID:       userID,
 		Paid:              paid,
