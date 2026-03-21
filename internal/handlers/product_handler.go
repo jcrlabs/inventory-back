@@ -67,21 +67,29 @@ var validStatuses = map[string]bool{
 }
 
 type CreateProductRequest struct {
-	Name        string     `json:"name" binding:"required,min=1,max=200"`
-	Description string     `json:"description" binding:"max=2000"`
-	Price       float64    `json:"price" binding:"gte=0"`
-	CategoryID  *uuid.UUID `json:"category_id"`
-	Paid        *bool      `json:"paid"`
-	Status      string     `json:"status"`
+	Name              string     `json:"name" binding:"required,min=1,max=200"`
+	RepairDescription string     `json:"repair_description" binding:"max=2000"`
+	RepairReference   string     `json:"repair_reference" binding:"max=200"`
+	EntryDate         *time.Time `json:"entry_date"`
+	ExitDate          *time.Time `json:"exit_date"`
+	Observations      string     `json:"observations" binding:"max=2000"`
+	Price             float64    `json:"price" binding:"gte=0"`
+	CategoryID        *uuid.UUID `json:"category_id"`
+	Paid              *bool      `json:"paid"`
+	Status            string     `json:"status"`
 }
 
 type UpdateProductRequest struct {
-	Name        *string    `json:"name" binding:"omitempty,min=1,max=200"`
-	Description *string    `json:"description" binding:"omitempty,max=2000"`
-	Price       *float64   `json:"price" binding:"omitempty,gte=0"`
-	CategoryID  *uuid.UUID `json:"category_id"`
-	Paid        *bool      `json:"paid"`
-	Status      *string    `json:"status"`
+	Name              *string    `json:"name" binding:"omitempty,min=1,max=200"`
+	RepairDescription *string    `json:"repair_description" binding:"omitempty,max=2000"`
+	RepairReference   *string    `json:"repair_reference" binding:"omitempty,max=200"`
+	EntryDate         *time.Time `json:"entry_date"`
+	ExitDate          *time.Time `json:"exit_date"`
+	Observations      *string    `json:"observations" binding:"omitempty,max=2000"`
+	Price             *float64   `json:"price" binding:"omitempty,gte=0"`
+	CategoryID        *uuid.UUID `json:"category_id"`
+	Paid              *bool      `json:"paid"`
+	Status            *string    `json:"status"`
 }
 
 func (h *ProductHandler) List(c *gin.Context) {
@@ -184,13 +192,17 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	}
 
 	product := &models.Product{
-		Name:        req.Name,
-		Description: req.Description,
-		Price:       req.Price,
-		CategoryID:  req.CategoryID,
-		CreatedByID: userID,
-		Paid:        paid,
-		Status:      status,
+		Name:              req.Name,
+		RepairDescription: req.RepairDescription,
+		RepairReference:   req.RepairReference,
+		EntryDate:         req.EntryDate,
+		ExitDate:          req.ExitDate,
+		Observations:      req.Observations,
+		Price:             req.Price,
+		CategoryID:        req.CategoryID,
+		CreatedByID:       userID,
+		Paid:              paid,
+		Status:            status,
 	}
 
 	if err := h.productRepo.Create(product); err != nil {
@@ -242,8 +254,20 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	if req.Name != nil {
 		product.Name = *req.Name
 	}
-	if req.Description != nil {
-		product.Description = *req.Description
+	if req.RepairDescription != nil {
+		product.RepairDescription = *req.RepairDescription
+	}
+	if req.RepairReference != nil {
+		product.RepairReference = *req.RepairReference
+	}
+	if req.EntryDate != nil {
+		product.EntryDate = req.EntryDate
+	}
+	if req.ExitDate != nil {
+		product.ExitDate = req.ExitDate
+	}
+	if req.Observations != nil {
+		product.Observations = *req.Observations
 	}
 	if req.Price != nil {
 		product.Price = *req.Price
