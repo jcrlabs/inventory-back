@@ -1,0 +1,46 @@
+replicaCount: 1
+
+image:
+  tag: develop-abc1234
+  pullPolicy: Always
+
+ingress:
+  host: invent-back-test.jcrlabs.net
+
+config:
+  env: staging
+  minioPublicUrl: https://minio-test.jcrlabs.net
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+postgres:
+  storage: 5Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+minio:
+  storage: 5Gi
+  ingress:
+    host: minio-test.jcrlabs.net
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+hpa:
+  minReplicas: 1
+  maxReplicas: 2
