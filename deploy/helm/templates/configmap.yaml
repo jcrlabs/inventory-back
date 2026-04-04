@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "inventory-back.fullname" . }}-config
+  labels:
+    {{- include "inventory-back.labels" . | nindent 4 }}
+data:
+  PORT: "8080"
+  ENV: {{ .Values.config.env | quote }}
+  DB_HOST: {{ .Values.config.dbHost | quote }}
+  DB_PORT: {{ .Values.config.dbPort | quote }}
+  DB_NAME: {{ .Values.config.dbName | quote }}
+  DB_SSL_MODE: {{ .Values.config.dbSslMode | quote }}
+  MINIO_ENDPOINT: {{ .Values.config.minioEndpoint | quote }}
+  MINIO_BUCKET: {{ .Values.config.minioBucket | quote }}
+  MINIO_USE_SSL: {{ .Values.config.minioUseSsl | quote }}
+  MINIO_PUBLIC_URL: {{ .Values.config.minioPublicUrl | quote }}
