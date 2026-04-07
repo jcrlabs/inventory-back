@@ -96,8 +96,8 @@ jobs:
           git config user.email "ci@jcrlabs.net"
           git config user.name "CI Bot"
           git add deploy/helm/values-prod.yaml
-          git commit -m "chore: release $VERSION"
-          git tag "$VERSION"
+          git diff --staged --quiet || git commit -m "chore: release $VERSION"
+          git rev-parse "$VERSION" >/dev/null 2>&1 || git tag "$VERSION"
           git push
           git push --tags
 
