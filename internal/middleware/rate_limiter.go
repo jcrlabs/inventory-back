@@ -80,6 +80,21 @@ func (l *ipLimiter) get(ip string) *slidingWindow {
 	return sw
 }
 
+// GlobalRateLimiter limits all API requests to maxHits per window per IP.
+func GlobalRateLimiter(maxHits int, window time.Duration) gin.HandlerFunc {
+	limiter := newIPLimiter(maxHits, window)
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		if !limiter.get(ip).allow() {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"error": "too many requests",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
 // LoginRateLimiter limits login attempts to maxHits per window per IP.
 // Defaults: 10 attempts / 15 minutes.
 func LoginRateLimiter(maxHits int, window time.Duration) gin.HandlerFunc {

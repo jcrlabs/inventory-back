@@ -125,6 +125,7 @@ func main() {
 	r.GET("/swagger/doc.json", swaggerHandler.Spec)
 
 	api := r.Group("/api/v1")
+	api.Use(middleware.GlobalRateLimiter(200, time.Minute))
 
 	// Public routes
 	api.POST("/auth/login",
