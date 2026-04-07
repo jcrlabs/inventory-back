@@ -86,20 +86,22 @@ type CreateProductRequest struct {
 	Status            string           `json:"status"`
 }
 
-// UpdateProductRequest uses *json.RawMessage for date fields so we can distinguish
-// between a field that was not sent (nil pointer) and one explicitly set to null
-// (pointer to raw bytes containing "null"), enabling the caller to clear a date.
+// UpdateProductRequest uses json.RawMessage (non-pointer) for date fields so we can
+// distinguish between a field absent from the JSON body (zero-value nil slice) and one
+// explicitly set to null (slice containing the bytes "null"), enabling the caller to
+// clear a date. Using *json.RawMessage would not work because Go sets pointer fields to
+// nil for both "field absent" and "field is JSON null".
 type UpdateProductRequest struct {
-	Name              *string          `json:"name" binding:"omitempty,min=1,max=200"`
-	RepairDescription *string          `json:"repair_description" binding:"omitempty,max=2000"`
-	RepairReference   *string          `json:"repair_reference" binding:"omitempty,max=200"`
-	EntryDate         *json.RawMessage `json:"entry_date"`
-	ExitDate          *json.RawMessage `json:"exit_date"`
-	Observations      *string          `json:"observations" binding:"omitempty,max=2000"`
-	Price             *float64         `json:"price" binding:"omitempty,gte=0"`
-	CategoryID        *uuid.UUID       `json:"category_id"`
-	Paid              *bool            `json:"paid"`
-	Status            *string          `json:"status"`
+	Name              *string         `json:"name" binding:"omitempty,min=1,max=200"`
+	RepairDescription *string         `json:"repair_description" binding:"omitempty,max=2000"`
+	RepairReference   *string         `json:"repair_reference" binding:"omitempty,max=200"`
+	EntryDate         json.RawMessage `json:"entry_date"`
+	ExitDate          json.RawMessage `json:"exit_date"`
+	Observations      *string         `json:"observations" binding:"omitempty,max=2000"`
+	Price             *float64        `json:"price" binding:"omitempty,gte=0"`
+	CategoryID        *uuid.UUID      `json:"category_id"`
+	Paid              *bool           `json:"paid"`
+	Status            *string         `json:"status"`
 }
 
 func (h *ProductHandler) List(c *gin.Context) {
@@ -241,21 +243,21 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	}
 }
 
-// parseDateField interprets a *json.RawMessage date field:
-// - nil means the field was not present in the request (no change)
+// parseDateField interprets a json.RawMessage date field:
+// - nil/empty slice means the field was absent from the request (no change)
 // - "null" or empty string means explicitly clear the date
 // - otherwise parse as DateOnly
 // Returns (date, changed, error). changed=true means the field should be updated.
-func parseDateField(raw *json.RawMessage) (*models.DateOnly, bool, error) {
-	if raw == nil {
+func parseDateField(raw json.RawMessage) (*models.DateOnly, bool, error) {
+	if len(raw) == 0 {
 		return nil, false, nil
 	}
-	s := string(*raw)
+	s := string(raw)
 	if s == "null" || s == `""` || s == "" {
 		return nil, true, nil
 	}
 	var d models.DateOnly
-	if err := json.Unmarshal(*raw, &d); err != nil {
+	if err := json.Unmarshal(raw, &d); err != nil {
 		return nil, false, err
 	}
 	return &d, true, nil
