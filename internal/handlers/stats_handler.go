@@ -50,8 +50,8 @@ func (q *gormStatsQuerier) Fetch() (InventoryStats, error) {
 	var agg productAgg
 	if err := q.db.Raw(`
 		SELECT
-			COUNT(*)                              AS total,
-			COUNT(*) FILTER (WHERE active = true) AS active
+			COUNT(*)                                            AS total,
+			COUNT(*) FILTER (WHERE status <> 'no_reparado') AS active
 		FROM products
 		WHERE deleted_at IS NULL
 	`).Scan(&agg).Error; err != nil {
