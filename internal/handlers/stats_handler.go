@@ -20,10 +20,12 @@ func NewStatsHandler(db *gorm.DB) *StatsHandler {
 }
 
 type InventoryStats struct {
-	TotalProducts   int64 `json:"total_products"`
-	ActiveProducts  int64 `json:"active_products"`
-	TotalCategories int64 `json:"total_categories"`
-	TotalUsers      int64 `json:"total_users"`
+	TotalProducts    int64 `json:"total_products"`
+	ActiveProducts   int64 `json:"active_products"`
+	RepairedProducts int64 `json:"repaired_products"`
+	PaidProducts     int64 `json:"paid_products"`
+	TotalCategories  int64 `json:"total_categories"`
+	TotalUsers       int64 `json:"total_users"`
 }
 
 func (h *StatsHandler) GetStats(c *gin.Context) {
@@ -44,14 +46,18 @@ func (q *gormStatsQuerier) Fetch() (InventoryStats, error) {
 	var stats InventoryStats
 
 	type productAgg struct {
-		Total  int64
-		Active int64
+		Total     int64
+		Active    int64
+		Repaired  int64
+		PaidCount int64
 	}
 	var agg productAgg
 	if err := q.db.Raw(`
 		SELECT
 			COUNT(*)                                            AS total,
-			COUNT(*) FILTER (WHERE status <> 'no_reparado') AS active
+			COUNT(*) FILTER (WHERE status <> 'no_reparado') AS active,
+			COUNT(*) FILTER (WHERE status = 'reparado')     AS repaired,
+			COUNT(*) FILTER (WHERE paid = true)              AS paid_count
 		FROM products
 		WHERE deleted_at IS NULL
 	`).Scan(&agg).Error; err != nil {
@@ -60,6 +66,8 @@ func (q *gormStatsQuerier) Fetch() (InventoryStats, error) {
 
 	stats.TotalProducts = agg.Total
 	stats.ActiveProducts = agg.Active
+	stats.RepairedProducts = agg.Repaired
+	stats.PaidProducts = agg.PaidCount
 
 	if err := q.db.Table("categories").Where("deleted_at IS NULL").Count(&stats.TotalCategories).Error; err != nil {
 		return stats, err
