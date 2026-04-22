@@ -1,10 +1,10 @@
-# Inventory App — Diagramas Técnicos
+# Electroteca — Diagramas Técnicos
 
 > Documentación unificada (backend Go + frontend React). Todos los diagramas usan sintaxis Mermaid.
 
 ---
 
-## 1. Diagrama de Clases
+## 1a. Diagrama de Clases — Backend
 
 ```mermaid
 classDiagram
@@ -226,144 +226,6 @@ classDiagram
         +Live(c)
     }
 
-    %% ─── FRONTEND: STORES ───────────────────────────────────────────────────
-
-    class AuthStore {
-        +User user
-        +string accessToken
-        +string refreshToken
-        +Date expiresAt
-        +bool isAuthenticated
-        --
-        +setAuth(user, accessToken, refreshToken, expiresAt)
-        +updateUser(user)
-        +logout()
-    }
-
-    %% ─── FRONTEND: API CLIENTS ──────────────────────────────────────────────
-
-    class AuthApi {
-        +login(identifier, password) TokenPair
-        +register(data) TokenPair
-        +refresh(refreshToken) TokenPair
-        +logout(refreshToken?)
-        +me() User
-        +updateMe(data) User
-    }
-
-    class ProductsApi {
-        +list(filters?) PaginatedResponse~Product~
-        +get(id) Product
-        +create(data) Product
-        +update(id, data) Product
-        +delete(id)
-        +uploadImage(id, file) ImageUrl
-        +addImage(id, file) ProductImage
-        +deleteImage(productId, imageId)
-    }
-
-    class CategoriesApi {
-        +list() ListResponse~Category~
-        +get(id) Category
-        +create(data) Category
-        +update(id, data) Category
-        +delete(id)
-    }
-
-    class UsersApi {
-        +list() ListResponse~User~
-        +get(id) User
-        +create(data) User
-        +update(id, data) User
-        +delete(id)
-    }
-
-    class ContactsApi {
-        +get(productId) Contact
-        +upsert(productId, data) Contact
-        +delete(productId)
-    }
-
-    class StatsApi {
-        +get() InventoryStats
-    }
-
-    %% ─── FRONTEND: HOOKS ────────────────────────────────────────────────────
-
-    class UsePermissions {
-        +bool isAdmin
-        +bool isManager
-        +bool isViewer
-        +bool canManage
-        +canDeleteProduct(product) bool
-    }
-
-    class UseDebounce {
-        +debounce(value, delay) debouncedValue
-    }
-
-    %% ─── FRONTEND: PAGES ────────────────────────────────────────────────────
-
-    class LoginPage {
-        -string identifier
-        -string password
-        --
-        +handleSubmit()
-        +render()
-    }
-
-    class RegisterPage {
-        -string username
-        -string email
-        -string password
-        --
-        +handleSubmit()
-        +render()
-    }
-
-    class DashboardPage {
-        --
-        +render()
-    }
-
-    class ProductsPage {
-        -ProductFilters filters
-        -string viewMode
-        -int page
-        --
-        +handleSearch()
-        +handleFilterChange()
-        +handleCreate()
-        +handleEdit()
-        +handleDelete()
-        +render()
-    }
-
-    class ProductDetailPage {
-        -string productId
-        --
-        +handleEdit()
-        +handleDelete()
-        +handleImageUpload()
-        +render()
-    }
-
-    class CategoriesPage {
-        --
-        +handleCreate()
-        +handleEdit()
-        +handleDelete()
-        +render()
-    }
-
-    class UsersPage {
-        --
-        +handleCreate()
-        +handleEdit()
-        +handleDelete()
-        +render()
-    }
-
     %% ─── ENUMS ──────────────────────────────────────────────────────────────
 
     class Role {
@@ -380,7 +242,7 @@ classDiagram
         no_reparado
     }
 
-    %% ─── RELACIONES BACKEND ─────────────────────────────────────────────────
+    %% ─── RELACIONES ─────────────────────────────────────────────────────────
 
     User "1" --> "0..*" Product : creates
     User "1" --> "0..*" RefreshToken : has
@@ -399,8 +261,142 @@ classDiagram
     CategoryHandler ..> Category : returns
     UserHandler ..> User : returns
     ContactHandler ..> Contact : returns
+```
 
-    %% ─── RELACIONES FRONTEND ─────────────────────────────────────────────────
+---
+
+## 1b. Diagrama de Clases — Frontend
+
+```mermaid
+classDiagram
+    %% ─── STORES ─────────────────────────────────────────────────────────────
+
+    class AuthStore {
+        +User user
+        +string accessToken
+        +string refreshToken
+        +Date expiresAt
+        +bool isAuthenticated
+        --
+        +setAuth(user, accessToken, refreshToken, expiresAt)
+        +updateUser(user)
+        +logout()
+    }
+
+    %% ─── API CLIENTS ─────────────────────────────────────────────────────────
+
+    class AuthApi {
+        +login(identifier, password) TokenPair
+        +register(data) TokenPair
+        +refresh(refreshToken) TokenPair
+        +logout(refreshToken?)
+        +me() User
+        +updateMe(data) User
+    }
+
+    class ProductsApi {
+        +list(filters?) PaginatedResponse
+        +get(id) Product
+        +create(data) Product
+        +update(id, data) Product
+        +delete(id)
+        +addImage(id, file) ProductImage
+        +deleteImage(productId, imageId)
+    }
+
+    class CategoriesApi {
+        +list() ListResponse
+        +get(id) Category
+        +create(data) Category
+        +update(id, data) Category
+        +delete(id)
+    }
+
+    class UsersApi {
+        +list() ListResponse
+        +get(id) User
+        +create(data) User
+        +update(id, data) User
+        +delete(id)
+    }
+
+    class ContactsApi {
+        +get(productId) Contact
+        +upsert(productId, data) Contact
+        +delete(productId)
+    }
+
+    class StatsApi {
+        +get() InventoryStats
+    }
+
+    %% ─── HOOKS ───────────────────────────────────────────────────────────────
+
+    class UsePermissions {
+        +bool isAdmin
+        +bool isManager
+        +bool isViewer
+        +bool canManage
+        +canDeleteProduct(product) bool
+    }
+
+    class UseDebounce {
+        +debounce(value, delay) debouncedValue
+    }
+
+    %% ─── PAGES ───────────────────────────────────────────────────────────────
+
+    class LoginPage {
+        -string identifier
+        -string password
+        --
+        +handleSubmit()
+    }
+
+    class RegisterPage {
+        -string username
+        -string email
+        -string password
+        --
+        +handleSubmit()
+    }
+
+    class DashboardPage
+
+    class ProductsPage {
+        -ProductFilters filters
+        -string viewMode
+        --
+        +handleSearch()
+        +handleFilterChange()
+        +handleCreate()
+        +handleEdit()
+        +handleDelete()
+    }
+
+    class ProductDetailPage {
+        -string productId
+        --
+        +handleEdit()
+        +handleDelete()
+        +handleImageUpload()
+    }
+
+    class CategoriesPage {
+        --
+        +handleCreate()
+        +handleEdit()
+        +handleDelete()
+    }
+
+    class UsersPage {
+        --
+        +handleCreate()
+        +handleEdit()
+        +handleDelete()
+    }
+
+    %% ─── RELACIONES ─────────────────────────────────────────────────────────
 
     LoginPage --> AuthStore : updates
     RegisterPage --> AuthStore : updates
@@ -426,118 +422,170 @@ classDiagram
 
 ## 2. Casos de Uso
 
+### 2.1 — Viewer
+
 ```mermaid
-graph TD
-    subgraph Actores
-        V[Viewer]
-        M[Manager]
-        A[Admin]
+graph LR
+    V([Viewer])
+
+    subgraph Auth
+        A1[Iniciar sesión]
+        A2[Registrarse]
+        A3[Cerrar sesión]
+        A4[Ver / Editar perfil propio]
     end
 
-    subgraph Sistema de Inventario
-        subgraph Auth
-            UC1[Iniciar sesión]
-            UC2[Registrarse]
-            UC3[Refrescar token]
-            UC4[Cerrar sesión]
-            UC5[Ver perfil propio]
-            UC6[Editar perfil propio]
-        end
-
-        subgraph Productos
-            UC7[Ver listado de productos]
-            UC8[Buscar y filtrar productos]
-            UC9[Ver detalle de producto]
-            UC10[Crear producto]
-            UC11[Editar producto]
-            UC12[Eliminar producto]
-            UC13[Subir imagen principal]
-            UC14[Gestionar galería de imágenes]
-        end
-
-        subgraph Contactos
-            UC15[Ver contacto del producto]
-            UC16[Crear/editar contacto]
-            UC17[Eliminar contacto]
-        end
-
-        subgraph Categorías
-            UC18[Ver categorías]
-            UC19[Crear categoría]
-            UC20[Editar categoría]
-            UC21[Eliminar categoría]
-        end
-
-        subgraph Usuarios
-            UC22[Ver lista de usuarios]
-            UC23[Crear usuario]
-            UC24[Editar usuario]
-            UC25[Eliminar usuario]
-        end
-
-        subgraph Dashboard
-            UC26[Ver estadísticas generales]
-            UC27[Ver productos recientes]
-        end
+    subgraph Productos
+        P1[Ver listado]
+        P2[Buscar y filtrar]
+        P3[Ver detalle]
     end
 
-    %% Viewer
-    V --> UC1
-    V --> UC2
-    V --> UC3
-    V --> UC4
-    V --> UC5
-    V --> UC6
-    V --> UC7
-    V --> UC8
-    V --> UC9
-    V --> UC15
-    V --> UC18
-    V --> UC26
-    V --> UC27
+    subgraph Contactos
+        C1[Ver contacto del producto]
+    end
 
-    %% Manager (hereda Viewer)
-    M --> UC1
-    M --> UC2
-    M --> UC4
-    M --> UC5
-    M --> UC6
-    M --> UC7
-    M --> UC8
-    M --> UC9
-    M --> UC10
-    M --> UC11
-    M --> UC12
-    M --> UC13
-    M --> UC14
-    M --> UC15
-    M --> UC16
-    M --> UC17
-    M --> UC18
-    M --> UC19
-    M --> UC20
-    M --> UC26
-    M --> UC27
+    subgraph Categorias
+        G1[Ver categorías]
+    end
 
-    %% Admin (hereda Manager)
-    A --> UC10
-    A --> UC11
-    A --> UC12
-    A --> UC13
-    A --> UC14
-    A --> UC15
-    A --> UC16
-    A --> UC17
-    A --> UC18
-    A --> UC19
-    A --> UC20
-    A --> UC21
-    A --> UC22
-    A --> UC23
-    A --> UC24
-    A --> UC25
-    A --> UC26
-    A --> UC27
+    subgraph Dashboard
+        D1[Ver estadísticas]
+        D2[Ver productos recientes]
+    end
+
+    V --> A1
+    V --> A2
+    V --> A3
+    V --> A4
+    V --> P1
+    V --> P2
+    V --> P3
+    V --> C1
+    V --> G1
+    V --> D1
+    V --> D2
+```
+
+### 2.2 — Manager
+
+```mermaid
+graph LR
+    M([Manager])
+
+    subgraph Auth
+        A1[Iniciar sesión]
+        A3[Cerrar sesión]
+        A4[Ver / Editar perfil propio]
+    end
+
+    subgraph Productos
+        P1[Ver listado]
+        P2[Buscar y filtrar]
+        P3[Ver detalle]
+        P4[Crear producto]
+        P5[Editar producto]
+        P6[Eliminar producto propio]
+        P7[Gestionar imágenes]
+    end
+
+    subgraph Contactos
+        C1[Ver contacto]
+        C2[Crear / Editar contacto]
+        C3[Eliminar contacto]
+    end
+
+    subgraph Categorias
+        G1[Ver categorías]
+        G2[Crear categoría]
+        G3[Editar categoría]
+    end
+
+    subgraph Dashboard
+        D1[Ver estadísticas]
+        D2[Ver productos recientes]
+    end
+
+    M --> A1
+    M --> A3
+    M --> A4
+    M --> P1
+    M --> P2
+    M --> P3
+    M --> P4
+    M --> P5
+    M --> P6
+    M --> P7
+    M --> C1
+    M --> C2
+    M --> C3
+    M --> G1
+    M --> G2
+    M --> G3
+    M --> D1
+    M --> D2
+```
+
+### 2.3 — Admin
+
+```mermaid
+graph LR
+    A([Admin])
+
+    subgraph Auth
+        A1[Iniciar sesión]
+        A3[Cerrar sesión]
+        A4[Ver / Editar perfil propio]
+    end
+
+    subgraph Productos
+        P4[Crear producto]
+        P5[Editar cualquier producto]
+        P6[Eliminar cualquier producto]
+        P7[Gestionar imágenes]
+    end
+
+    subgraph Contactos
+        C2[Crear / Editar contacto]
+        C3[Eliminar contacto]
+    end
+
+    subgraph Categorias
+        G2[Crear categoría]
+        G3[Editar categoría]
+        G4[Eliminar categoría]
+    end
+
+    subgraph Usuarios
+        U1[Ver lista de usuarios]
+        U2[Crear usuario]
+        U3[Editar usuario]
+        U4[Eliminar usuario]
+    end
+
+    subgraph Dashboard
+        D1[Ver estadísticas]
+        D2[Ver productos recientes]
+    end
+
+    A --> A1
+    A --> A3
+    A --> A4
+    A --> P4
+    A --> P5
+    A --> P6
+    A --> P7
+    A --> C2
+    A --> C3
+    A --> G2
+    A --> G3
+    A --> G4
+    A --> U1
+    A --> U2
+    A --> U3
+    A --> U4
+    A --> D1
+    A --> D2
 ```
 
 ---
@@ -717,7 +765,7 @@ erDiagram
 
     contacts {
         UUID id PK
-        UUID product_id FK UK "unique → 1:1"
+        UUID product_id FK "unique - 1:1 con product"
         VARCHAR name
         VARCHAR subdato "legacy, nullable"
         VARCHAR email "nullable"
