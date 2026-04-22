@@ -64,7 +64,82 @@ erDiagram
 
 ---
 
-## 2. Arquitectura — Capas del sistema
+## 2. Diagrama de Clases
+
+```mermaid
+classDiagram
+    class User {
+        +UUID id
+        +string username
+        +string email
+        +Role role
+        +bool active
+    }
+
+    class Product {
+        +UUID id
+        +string name
+        +string sku
+        +float64 price
+        +ProductStatus status
+        +bool paid
+        +UUID categoryId
+    }
+
+    class Category {
+        +UUID id
+        +string name
+        +string description
+    }
+
+    class Contact {
+        +UUID id
+        +UUID productId
+        +string name
+        +string email
+        +string phone
+    }
+
+    class ProductImage {
+        +UUID id
+        +UUID productId
+        +string imageKey
+        +int position
+    }
+
+    class RefreshToken {
+        +UUID id
+        +UUID userId
+        +string tokenHash
+        +bool revoked
+    }
+
+    class Role {
+        <<enumeration>>
+        admin
+        manager
+        viewer
+    }
+
+    class ProductStatus {
+        <<enumeration>>
+        reparado
+        en_progreso
+        no_reparado
+    }
+
+    User --> Role
+    Product --> ProductStatus
+    User "1" --> "0..*" Product : crea
+    User "1" --> "0..*" RefreshToken : posee
+    Product "0..*" --> "0..1" Category : pertenece
+    Product "1" --> "0..1" Contact : tiene
+    Product "1" --> "0..*" ProductImage : galeria
+```
+
+---
+
+## 3. Arquitectura — Capas del sistema
 
 ```mermaid
 graph TD
@@ -101,7 +176,7 @@ graph TD
 
 ---
 
-## 3. Flujo de autenticación
+## 4. Flujo de autenticación
 
 ```mermaid
 sequenceDiagram
@@ -125,7 +200,7 @@ sequenceDiagram
 
 ---
 
-## 4. Roles y permisos
+## 5. Roles y permisos
 
 ```mermaid
 graph LR
