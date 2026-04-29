@@ -206,6 +206,27 @@ func (s *AuthService) issueTokenPair(user *models.User) (*TokenPair, error) {
 	}, nil
 }
 
+// IssueDemoToken creates a short-lived access-only JWT (30 min) for the demo user.
+// No refresh token is stored in the database.
+func (s *AuthService) IssueDemoToken(user *models.User) (string, time.Time, error) {
+	expiresAt := time.Now().Add(30 * time.Minute)
+	claims := &Claims{
+		UserID:   user.ID,
+		Username: user.Username,
+		Role:     user.Role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Subject:   user.ID.String(),
+		},
+	}
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.jwtSecret)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return token, expiresAt, nil
+}
+
 func generateOpaqueToken() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {

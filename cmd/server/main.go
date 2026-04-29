@@ -62,7 +62,7 @@ func main() {
 	authSvc := services.NewAuthService(userRepo, tokenRepo, cfg.JWTSecret, cfg.JWTAccessTTLHours)
 
 	// Handlers
-	authHandler := handlers.NewAuthHandler(authSvc, userRepo)
+	authHandler := handlers.NewAuthHandler(authSvc, userRepo, cfg.DemoUserEmail)
 	userHandler := handlers.NewUserHandler(userRepo, authSvc)
 	productHandler := handlers.NewProductHandler(productRepo, categoryRepo, minioSvc)
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
@@ -77,6 +77,7 @@ func main() {
 
 	// Seed default admin on first run
 	seedAdmin(userRepo, authSvc)
+	seedDemoUser(userRepo, authSvc, cfg.DemoUserEmail, cfg.DemoUserPassword)
 
 	// Schedule periodic refresh token purge
 	go func() {
@@ -134,6 +135,10 @@ func main() {
 	)
 	api.POST("/auth/register", authHandler.Register)
 	api.POST("/auth/refresh", authHandler.Refresh)
+	api.GET("/auth/demo",
+		middleware.LoginRateLimiter(20, time.Minute),
+		authHandler.Demo,
+	)
 
 	// Authenticated routes
 	auth := api.Group("")
@@ -219,6 +224,33 @@ func main() {
 		slog.Error("forced shutdown", slog.String("error", err.Error()))
 	}
 	slog.Info("server stopped")
+}
+
+func seedDemoUser(userRepo *repository.UserRepository, authSvc *services.AuthService, email, password string) {
+	if password == "" {
+		slog.Warn("DEMO_USER_PASSWORD not set — demo user not seeded")
+		return
+	}
+	if _, err := userRepo.FindByEmail(email); err == nil {
+		return // already exists
+	}
+	hash, err := authSvc.HashPassword(password)
+	if err != nil {
+		slog.Error("seed demo user hash error", slog.String("error", err.Error()))
+		return
+	}
+	demo := &models.User{
+		Username:     "demo",
+		Email:        email,
+		PasswordHash: hash,
+		Role:         models.RoleViewer,
+		Active:       true,
+	}
+	if err := userRepo.Create(demo); err != nil {
+		slog.Warn("seed demo user skipped", slog.String("error", err.Error()))
+		return
+	}
+	slog.Info("demo user seeded", slog.String("email", email))
 }
 
 func seedAdmin(userRepo *repository.UserRepository, authSvc *services.AuthService) {

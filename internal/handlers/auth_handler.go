@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -20,21 +21,24 @@ type authService interface {
 	LogoutAll(userID uuid.UUID) error
 	HashPassword(password string) (string, error)
 	CheckPassword(hash, plain string) bool
+	IssueDemoToken(user *models.User) (string, time.Time, error)
 }
 
 type authUserRepo interface {
 	FindByID(id uuid.UUID) (*models.User, error)
+	FindByEmail(email string) (*models.User, error)
 	Create(user *models.User) error
 	Update(user *models.User) error
 }
 
 type AuthHandler struct {
-	authSvc  authService
-	userRepo authUserRepo
+	authSvc       authService
+	userRepo      authUserRepo
+	demoUserEmail string
 }
 
-func NewAuthHandler(authSvc *services.AuthService, userRepo *repository.UserRepository) *AuthHandler {
-	return &AuthHandler{authSvc: authSvc, userRepo: userRepo}
+func NewAuthHandler(authSvc *services.AuthService, userRepo *repository.UserRepository, demoUserEmail string) *AuthHandler {
+	return &AuthHandler{authSvc: authSvc, userRepo: userRepo, demoUserEmail: demoUserEmail}
 }
 
 type loginRequest struct {
@@ -192,6 +196,32 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		"refresh_token": pair.RefreshToken,
 		"expires_at":    pair.ExpiresAt,
 		"user":          user,
+	})
+}
+
+func (h *AuthHandler) Demo(c *gin.Context) {
+	user, err := h.userRepo.FindByEmail(h.demoUserEmail)
+	if err != nil {
+		slog.Error("demo user not found", slog.String("email", h.demoUserEmail), slog.String("error", err.Error()))
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "demo not available"})
+		return
+	}
+	if !user.Active {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "demo not available"})
+		return
+	}
+
+	token, expiresAt, err := h.authSvc.IssueDemoToken(user)
+	if err != nil {
+		slog.Error("issue demo token", slog.String("error", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to issue demo token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token":      token,
+		"expires_in": int(time.Until(expiresAt).Seconds()),
+		"expires_at": expiresAt,
 	})
 }
 

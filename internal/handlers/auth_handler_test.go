@@ -19,12 +19,13 @@ import (
 // ── mocks ────────────────────────────────────────────────────────────────────
 
 type mockAuthSvc struct {
-	loginFn         func(id, pw string) (*services.TokenPair, *models.User, error)
-	refreshFn       func(tok string) (*services.TokenPair, *models.User, error)
-	logoutFn        func(tok string) error
-	logoutAllFn     func(id uuid.UUID) error
-	hashPasswordFn  func(pw string) (string, error)
-	checkPasswordFn func(hash, plain string) bool
+	loginFn          func(id, pw string) (*services.TokenPair, *models.User, error)
+	refreshFn        func(tok string) (*services.TokenPair, *models.User, error)
+	logoutFn         func(tok string) error
+	logoutAllFn      func(id uuid.UUID) error
+	hashPasswordFn   func(pw string) (string, error)
+	checkPasswordFn  func(hash, plain string) bool
+	issueDemoTokenFn func(user *models.User) (string, time.Time, error)
 }
 
 func (m *mockAuthSvc) Login(id, pw string) (*services.TokenPair, *models.User, error) {
@@ -47,16 +48,29 @@ func (m *mockAuthSvc) CheckPassword(hash, plain string) bool {
 	}
 	return hash == plain
 }
+func (m *mockAuthSvc) IssueDemoToken(user *models.User) (string, time.Time, error) {
+	if m.issueDemoTokenFn != nil {
+		return m.issueDemoTokenFn(user)
+	}
+	return "demo-tok", time.Now().Add(30 * time.Minute), nil
+}
 
 type mockAuthUserRepo struct {
-	findByIDFn func(id uuid.UUID) (*models.User, error)
-	createFn   func(user *models.User) error
-	updateFn   func(user *models.User) error
+	findByIDFn    func(id uuid.UUID) (*models.User, error)
+	findByEmailFn func(email string) (*models.User, error)
+	createFn      func(user *models.User) error
+	updateFn      func(user *models.User) error
 }
 
 func (m *mockAuthUserRepo) FindByID(id uuid.UUID) (*models.User, error) {
 	if m.findByIDFn != nil {
 		return m.findByIDFn(id)
+	}
+	return nil, errors.New("not implemented")
+}
+func (m *mockAuthUserRepo) FindByEmail(email string) (*models.User, error) {
+	if m.findByEmailFn != nil {
+		return m.findByEmailFn(email)
 	}
 	return nil, errors.New("not implemented")
 }
@@ -93,7 +107,7 @@ func fakeUser() *models.User {
 
 func newAuthRouter(svc authService, repo authUserRepo) *gin.Engine {
 	r := gin.New()
-	h := &AuthHandler{authSvc: svc, userRepo: repo}
+	h := &AuthHandler{authSvc: svc, userRepo: repo, demoUserEmail: "demo@jcrlabs.net"}
 	r.POST("/login", h.Login)
 	r.POST("/refresh", h.Refresh)
 	r.POST("/logout", h.Logout)

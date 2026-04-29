@@ -30,6 +30,10 @@ type Config struct {
 	JWTSecret         string
 	JWTAccessTTLHours int
 
+	// Demo user
+	DemoUserEmail    string
+	DemoUserPassword string
+
 	// MinIO
 	MinIOEndpoint  string
 	MinIOAccessKey string
@@ -89,6 +93,9 @@ func Load() (*Config, error) {
 
 		JWTSecret:         jwtSecret,
 		JWTAccessTTLHours: accessTTL,
+
+		DemoUserEmail:    getEnv("DEMO_USER_EMAIL", "demo@jcrlabs.net"),
+		DemoUserPassword: getEnv("DEMO_USER_PASSWORD", ""),
 
 		MinIOEndpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
 		MinIOAccessKey: getEnv("MINIO_ACCESS_KEY", "minioadmin"),
