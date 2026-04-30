@@ -61,7 +61,8 @@ jobs:
           curl -sL https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 \
             -o /usr/local/bin/argocd && chmod +x /usr/local/bin/argocd
           argocd app sync inventory-back-test \
-            --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+            --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web \
+            --retry-limit 3 --retry-backoff-duration 15s
 
   deploy-prod:
     name: Deploy → prod
@@ -110,7 +111,8 @@ jobs:
           curl -sL https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 \
             -o /usr/local/bin/argocd && chmod +x /usr/local/bin/argocd
           argocd app sync inventory-back \
-            --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+            --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web \
+            --retry-limit 3 --retry-backoff-duration 15s
 
       - name: Verify rollout + auto-rollback
         env:
