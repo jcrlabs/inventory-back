@@ -41,6 +41,7 @@ config:
   minioBucket: inventory
   minioUseSsl: "false"
   minioPublicUrl: ""
+  corsAllowedOrigins: "http://localhost:3000"
 
 secretName: inventory-back-secrets
 

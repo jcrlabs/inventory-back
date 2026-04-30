@@ -8,6 +8,7 @@ ingress:
 
 config:
   minioPublicUrl: https://minio.jcrlabs.net
+  corsAllowedOrigins: "https://home.jcrlabs.net,https://electroteca.jcrlabs.net"
 
 postgres:
   storage: 10Gi
