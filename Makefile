@@ -2,7 +2,7 @@ APP=inventory-back
 PKG=./...
 BIN=bin/api
 VERSION ?= dev
-IMAGE ?= ghcr.io/jonathancaamano/$(APP):$(VERSION)
+IMAGE ?= ghcr.io/jcrlabs/$(APP):$(VERSION)
 
 GOLANGCI_LINT_VERSION ?= v1.64.8
 MIGRATE ?= migrate
